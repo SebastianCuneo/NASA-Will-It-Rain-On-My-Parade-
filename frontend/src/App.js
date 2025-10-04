@@ -1,198 +1,178 @@
 /**
- * The Parade Planner - Main App Component
+ * UcuWeather - Main App Component
  * NASA Space Apps Challenge - React Application
+ * Adapted from original HTML design
  */
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import RiskForm from './components/RiskForm';
+import WeatherForm from './components/WeatherForm';
 import WeatherResults from './components/WeatherResults';
 
 function App() {
-  const [weatherData, setWeatherData] = useState(null);
+  const [isNightMode, setIsNightMode] = useState(false);
+  const [formData, setFormData] = useState({
+    location: 'Montevideo',
+    date: new Date().toISOString().split('T')[0],
+    weatherConditions: ['wet', 'hot'],
+    activity: null
+  });
+  const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [tempMessage, setTempMessage] = useState(null);
 
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
+  // Initialize mode based on localStorage or time
+  useEffect(() => {
+    const savedMode = localStorage.getItem('themeMode');
+    let initialNightMode;
+    
+    if (savedMode) {
+      initialNightMode = savedMode === 'night';
+    } else {
+      const now = new Date();
+      const hour = now.getHours();
+      const sunriseHour = 7;
+      const sunsetHour = 19;
+      initialNightMode = !(hour >= sunriseHour && hour < sunsetHour);
+    }
+    
+    setIsNightMode(initialNightMode);
+  }, []);
+
+  // Apply mode classes to body
+  useEffect(() => {
+    const body = document.body;
+    if (isNightMode) {
+      body.classList.remove('day-mode');
+      body.classList.add('night-mode');
+    } else {
+      body.classList.remove('night-mode');
+      body.classList.add('day-mode');
+    }
+  }, [isNightMode]);
+
+  const toggleMode = () => {
+    const newMode = !isNightMode;
+    setIsNightMode(newMode);
+    localStorage.setItem('themeMode', newMode ? 'night' : 'day');
   };
 
-  // Apply dark mode class to body
-  useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add('dark-mode');
-      document.body.classList.remove('day-mode');
-    } else {
-      document.body.classList.add('day-mode');
-      document.body.classList.remove('dark-mode');
-    }
-  }, [darkMode]);
+  const showTemporaryMessage = (message, type = 'error') => {
+    setTempMessage({ message, type });
+    setTimeout(() => setTempMessage(null), 3000);
+  };
 
-  // Handle weather risk calculation
-  const handleWeatherAnalysis = async (formData) => {
+  const handleFormSubmit = async (data) => {
+    if (data.weatherConditions.length === 0) {
+      showTemporaryMessage('Por favor, selecciona al menos una condición climática.', 'error');
+      return;
+    }
+
+    setFormData(data);
     setLoading(true);
-    setError(null);
-    setWeatherData(null);
+    setResults(null);
 
-    try {
-      const response = await fetch('http://localhost:8000/api/risk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to fetch weather risk assessment');
-      }
-
-      const data = await response.json();
-      setWeatherData(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
+    // Simulate API call delay
+    setTimeout(() => {
+      setResults(data);
       setLoading(false);
-    }
+    }, 2000);
   };
 
   return (
-    <div className={`min-h-screen transition-all duration-1000 ${
-      darkMode 
-        ? 'bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900' 
-        : 'bg-gradient-to-br from-blue-100 via-blue-200 to-indigo-200'
-    }`}>
-      
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {/* Clouds Animation */}
-        <div className="absolute top-10 left-10 w-20 h-12 bg-white/20 rounded-full animate-float opacity-60"></div>
-        <div className="absolute top-32 right-20 w-16 h-10 bg-white/15 rounded-full animate-float-delayed opacity-50"></div>
-        <div className="absolute bottom-40 left-1/4 w-24 h-14 bg-white/10 rounded-full animate-float-slow opacity-40"></div>
-        <div className="absolute top-1/2 right-1/3 w-18 h-11 bg-white/25 rounded-full animate-float opacity-70"></div>
-      </div>
+    <div className="min-h-screen relative">
+      {/* Mode Toggle Button */}
+      <button
+        id="mode-toggle-button"
+        onClick={toggleMode}
+        className="absolute top-4 right-4 p-2 rounded-full shadow-lg transition-colors duration-300 z-20"
+        title={isNightMode ? 'Switch to Day Mode' : 'Switch to Night Mode'}
+      >
+        {/* Sun Icon */}
+        <svg
+          id="mode-icon-sun"
+          className={`w-6 h-6 ${isNightMode ? 'hidden' : 'block'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+          />
+        </svg>
+        {/* Moon Icon */}
+        <svg
+          id="mode-icon-moon"
+          className={`w-6 h-6 ${isNightMode ? 'block' : 'hidden'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+          />
+        </svg>
+      </button>
 
-      {/* Header */}
-      <header className="relative z-10 p-4">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div className="text-center">
-            <h1 className={`text-3xl font-bold ${
-              darkMode ? 'text-white' : 'text-gray-800'
-            }`}>
-              🌤️ The Parade Planner
-            </h1>
-            <p className={`text-sm ${
-              darkMode ? 'text-blue-200' : 'text-blue-600'
-            }`}>
-              Will It Rain On My Parade? - NASA Space Apps Challenge
-            </p>
-          </div>
-          
-          {/* Dark Mode Toggle */}
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2 rounded-full transition-all duration-300 ${
-              darkMode 
-                ? 'bg-yellow-400 text-gray-800 hover:bg-yellow-300' 
-                : 'bg-gray-800 text-white hover:bg-gray-700'
-            }`}
-            title={darkMode ? 'Switch to Day Mode' : 'Switch to Night Mode'}
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
+      {/* Cloud Animation Layer (only visible in day mode) */}
+      {!isNightMode && (
+        <div id="cloud-layer" className="cloud-animation-layer">
+          <div id="cloud-1" className="cloud"></div>
+          <div id="cloud-2" className="cloud"></div>
+          <div id="cloud-3" className="cloud"></div>
         </div>
-      </header>
+      )}
 
       {/* Main Content */}
-      <main className="relative z-10 px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
-            {/* Left Column - Form */}
-            <div className="space-y-6">
-              <div className={`p-6 rounded-2xl shadow-xl backdrop-blur-sm ${
-                darkMode 
-                  ? 'bg-slate-800/70 border border-slate-700' 
-                  : 'bg-white/80 border border-white/20'
-              }`}>
-                <h2 className={`text-xl font-semibold mb-4 ${
-                  darkMode ? 'text-white' : 'text-gray-800'
-                }`}>
-                  📍 Event Planning
-                </h2>
-                <RiskForm 
-                  onAnalyze={handleWeatherAnalysis}
-                  loading={loading}
-                  darkMode={darkMode}
-                />
-              </div>
-            </div>
-
-            {/* Right Column - Results */}
-            <div className="space-y-6">
-              <div className={`p-6 rounded-2xl shadow-xl backdrop-blur-sm ${
-                darkMode 
-                  ? 'bg-slate-800/70 border border-slate-700' 
-                  : 'bg-white/80 border border-white/20'
-              }`}>
-                <h2 className={`text-xl font-semibold mb-4 ${
-                  darkMode ? 'text-white' : 'text-gray-800'
-                }`}>
-                  📊 Risk Assessment
-                </h2>
-                
-                {loading && (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="loading-ring"></div>
-                    <span className={`ml-2 ${
-                      darkMode ? 'text-white' : 'text-gray-600'
-                    }`}>
-                      Analyzing weather data...
-                    </span>
-                  </div>
-                )}
-
-                {error && (
-                  <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                    <p className="text-sm">❌ {error}</p>
-                  </div>
-                )}
-
-                {weatherData && (
-                  <WeatherResults 
-                    data={weatherData} 
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {!loading && !error && !weatherData && (
-                  <div className={`text-center py-8 ${
-                    darkMode ? 'text-slate-400' : 'text-gray-500'
-                  }`}>
-                    <p className="text-sm">
-                      Enter your event details to get weather risk assessment
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 p-4 mt-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className={`text-xs ${
-            darkMode ? 'text-blue-200' : 'text-blue-600'
-          }`}>
-            NASA Space Apps Challenge 2024 | Built with ❤️ for Earth Science
+      <div className="max-w-md mx-auto p-4 md:p-6 app-content">
+        {/* Header */}
+        <header className="text-center my-8">
+          <h1 className="text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
+            UcuWeather
+          </h1>
+          <p className="text-slate-400 mt-2 flex items-center justify-center space-x-2">
+            <span>Planifica tu día perfecto con</span>
+            <img
+              src="https://placehold.co/80x20/0B3D91/FFFFFF?text=NASA"
+              alt="Logo de la NASA"
+              className="inline h-5 w-auto rounded-md"
+            />
           </p>
-        </div>
-      </footer>
+        </header>
+
+        {/* Main Form */}
+        <main>
+          <WeatherForm
+            onSubmit={handleFormSubmit}
+            loading={loading}
+            isNightMode={isNightMode}
+            initialData={formData}
+          />
+
+          {/* Temporary Message */}
+          {tempMessage && (
+            <div className={`mt-3 p-3 text-center rounded-lg font-bold transition-all duration-300 ${
+              tempMessage.type === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+            }`}>
+              {tempMessage.message}
+            </div>
+          )}
+        </main>
+
+        {/* Results Section */}
+        {results && (
+          <WeatherResults
+            data={results}
+            isNightMode={isNightMode}
+          />
+        )}
+      </div>
     </div>
   );
 }

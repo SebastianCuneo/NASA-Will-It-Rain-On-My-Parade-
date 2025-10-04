@@ -1,6 +1,7 @@
 /**
- * The Parade Planner - Main Styles
+ * UcuWeather - Main Styles
  * NASA Space Apps Challenge - React Application Styles
+ * Adapted from original HTML design
  */
 
 /* Import Tailwind CSS */
@@ -8,7 +9,7 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Custom CSS Variables */
+/* CSS Variables */
 :root {
   --nasa-blue: #0B3D91;
   --nasa-red: #FC3D21;
@@ -21,29 +22,29 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  margin: 0;
-  padding: 0;
+  font-family: 'Inter', sans-serif;
   transition: background-color 1s ease-in-out, color 0.5s ease-in-out;
   min-height: 100vh;
+  position: relative;
+  margin: 0;
+  padding: 0;
 }
 
-/* Dark Mode Styles */
-.dark-mode {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
-  color: #ffffff;
+/* Date input styling */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
 }
 
-.day-mode {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #c7d2fe 100%);
-  color: #1f2937;
+/* Selectable option styles */
+.selectable-option.selected {
+  background-color: var(--nasa-blue) !important;
+  color: #fff !important;
+  border-color: #60a5fa !important;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(96, 165, 250, 0.5);
 }
 
-/* Loading Animation */
+/* Loading ring animation */
 .loading-ring {
   width: 1.5rem;
   height: 1.5rem;
@@ -52,256 +53,236 @@ body {
   border-radius: 50%;
   animation: spin 1s ease-in-out infinite;
   display: inline-block;
+  margin-right: 0.5rem;
 }
 
 @keyframes spin {
-  to { 
-    transform: rotate(360deg); 
-  }
+  to { transform: rotate(360deg); }
 }
 
 /* Cloud Animation */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px) translateX(0px);
-  }
-  25% {
-    transform: translateY(-10px) translateX(5px);
-  }
-  50% {
-    transform: translateY(-5px) translateX(-5px);
-  }
-  75% {
-    transform: translateY(-15px) translateX(3px);
-  }
+@keyframes drift {
+  0% { transform: translateX(100vw) scale(var(--cloud-scale, 1)); }
+  100% { transform: translateX(-150vw) scale(var(--cloud-scale, 1)); }
 }
 
-@keyframes float-delayed {
-  0%, 100% {
-    transform: translateY(0px) translateX(0px);
-  }
-  25% {
-    transform: translateY(-8px) translateX(-3px);
-  }
-  50% {
-    transform: translateY(-12px) translateX(7px);
-  }
-  75% {
-    transform: translateY(-6px) translateX(-2px);
-  }
-}
-
-@keyframes float-slow {
-  0%, 100% {
-    transform: translateY(0px) translateX(0px);
-  }
-  25% {
-    transform: translateY(-5px) translateX(3px);
-  }
-  50% {
-    transform: translateY(-8px) translateX(-4px);
-  }
-  75% {
-    transform: translateY(-3px) translateX(6px);
-  }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-float-delayed {
-  animation: float-delayed 8s ease-in-out infinite;
-  animation-delay: 2s;
-}
-
-.animate-float-slow {
-  animation: float-slow 10s ease-in-out infinite;
-  animation-delay: 4s;
-}
-
-/* Form Styles */
-.form-input {
+.cloud-animation-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid transparent;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  color: inherit;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: var(--nasa-blue);
-  box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.1);
-  background: rgba(255, 255, 255, 0.2);
+.cloud {
+  position: absolute;
+  background: #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+  opacity: 0.9;
+  animation: drift linear infinite;
 }
 
-.form-input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+.cloud:before, .cloud:after {
+  content: '';
+  position: absolute;
+  background: inherit;
+  border-radius: inherit;
+  filter: blur(1px);
 }
 
-.day-mode .form-input {
-  background: rgba(255, 255, 255, 0.8);
+.cloud:before {
+  width: 60%;
+  height: 60%;
+  top: -30%;
+  left: 30%;
+}
+
+.cloud:after {
+  width: 80%;
+  height: 80%;
+  top: 20%;
+  left: -30%;
+}
+
+/* Individual cloud configurations for Day Mode */
+#cloud-1 { 
+  --cloud-scale: 1.2; 
+  top: 15%; 
+  animation-duration: 50s; 
+  animation-delay: 0s; 
+  width: 120px; 
+  height: 120px; 
+}
+
+#cloud-2 { 
+  --cloud-scale: 0.8; 
+  top: 55%; 
+  animation-duration: 70s; 
+  animation-delay: 15s; 
+  width: 80px; 
+  height: 80px; 
+}
+
+#cloud-3 { 
+  --cloud-scale: 1.0; 
+  top: 8%; 
+  animation-duration: 60s; 
+  animation-delay: 30s; 
+  width: 100px; 
+  height: 100px; 
+}
+
+/* Night Mode Styles */
+.night-mode {
+  background-color: #05051a;
+  color: #fff;
+  z-index: 10;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.8) 1px, transparent 1px),
+    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.7) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 45% 55%, rgba(255, 255, 255, 0.6) 0.8px, transparent 0.8px);
+  background-size: 100vw 100vh, 200vw 200vh, 150vw 150vh;
+  animation: move-stars 120s linear infinite;
+}
+
+@keyframes move-stars {
+  from { background-position: 0 0; }
+  to { background-position: 100vw 100vh, 200vw 200vh, 150vw 150vh; }
+}
+
+/* Hide clouds in night mode */
+.night-mode .cloud-animation-layer { 
+  display: none; 
+}
+
+.night-mode input, 
+.night-mode .selectable-option, 
+.night-mode #result-card, 
+.night-mode #activity-result-card, 
+.night-mode .bg-slate-800\/50 {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #fff;
+}
+
+.night-mode #summary-message-container {
+  background-color: #1f2937;
+  border-color: #374151;
+}
+
+.night-mode #summary-message {
+  color: #d1d5db;
+}
+
+/* Day Mode Styles */
+.day-mode {
+  background: linear-gradient(to bottom, #87CEFA 0%, #6A5ACD 150%);
   color: #1f2937;
-  border-color: rgba(156, 163, 175, 0.3);
+  animation: none !important;
 }
 
-.day-mode .form-input:focus {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: var(--nasa-blue);
-  box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.1);
+.day-mode header p, 
+.day-mode label {
+  color: #374151;
 }
 
-.day-mode .form-input::placeholder {
-  color: rgba(31, 41, 55, 0.6);
+.day-mode input {
+  background-color: #e5e7eb;
+  border-color: #d1d5db;
+  color: #1f2937;
 }
 
-/* Button Styles */
-.btn-primary {
-  background: linear-gradient(135deg, var(--nasa-blue) 0%, #1e40af 100%);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
+/* Day Mode - Non-selected options */
+.day-mode .selectable-option {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+.day-mode #result-card, 
+.day-mode #activity-result-card, 
+.day-mode .bg-slate-800\/50 {
+  background-color: #e5e7eb;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+.day-mode .text-slate-400 {
+  color: #4b5563;
+}
+
+.day-mode #summary-message-container {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.day-mode #summary-message {
+  color: #374151;
+}
+
+.day-mode .bg-red-900\/20 {
+  background-color: #fecaca;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.day-mode #mode-toggle-button {
+  color: #0B3D91;
+  background-color: #f3f4f6;
+}
+
+.night-mode #mode-toggle-button {
+  color: #facc15;
+  background-color: #1f2937;
+}
+
+/* App content should be above animation */
+.app-content {
+  position: relative;
+  z-index: 10;
+}
+
+/* Form input styles */
+input {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  color: #fff;
+  padding: 0.875rem;
   border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
+  width: 100%;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(11, 61, 145, 0.3);
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(11, 61, 145, 0.4);
+input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.btn-primary:active {
-  transform: translateY(0);
+/* Button styles */
+button {
+  transition: transform 0.2s ease;
 }
 
-.btn-primary:disabled {
+button:hover {
+  transform: scale(1.05);
+}
+
+button:focus {
+  outline: none;
+  ring: 4px;
+  ring-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Loading button styles */
+button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
-}
-
-/* Risk Badge Styles */
-.risk-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.risk-badge.high {
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-}
-
-.risk-badge.moderate {
-  background-color: #fffbeb;
-  color: #d97706;
-  border: 1px solid #fed7aa;
-}
-
-.risk-badge.low {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
-}
-
-.risk-badge.minimal {
-  background-color: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
-
-.dark-mode .risk-badge.high {
-  background-color: rgba(220, 38, 38, 0.2);
-  color: #fca5a5;
-  border-color: rgba(220, 38, 38, 0.3);
-}
-
-.dark-mode .risk-badge.moderate {
-  background-color: rgba(217, 119, 6, 0.2);
-  color: #fed7aa;
-  border-color: rgba(217, 119, 6, 0.3);
-}
-
-.dark-mode .risk-badge.low {
-  background-color: rgba(37, 99, 235, 0.2);
-  color: #93c5fd;
-  border-color: rgba(37, 99, 235, 0.3);
-}
-
-.dark-mode .risk-badge.minimal {
-  background-color: rgba(22, 163, 74, 0.2);
-  color: #86efac;
-  border-color: rgba(22, 163, 74, 0.3);
-}
-
-/* Card Styles */
-.weather-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-}
-
-.weather-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-}
-
-.day-mode .weather-card {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #1f2937;
-}
-
-.day-mode .weather-card:hover {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .grid-cols-1.lg\\:grid-cols-2 {
-    grid-template-columns: 1fr;
-  }
-  
-  .max-w-4xl {
-    max-width: 100%;
-    padding: 0 1rem;
-  }
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
 }
 
 /* Animation for results */
@@ -320,39 +301,29 @@ body {
   }
 }
 
-/* Status message styles */
-.status-message {
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin: 1rem 0;
-  font-weight: 500;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .max-w-md {
+    max-width: 100%;
+    padding: 1rem;
+  }
 }
 
-.status-message.high {
-  background-color: rgba(220, 38, 38, 0.1);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  color: #dc2626;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-.status-message.moderate {
-  background-color: rgba(217, 119, 6, 0.1);
-  border: 1px solid rgba(217, 119, 6, 0.2);
-  color: #d97706;
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
-.status-message.low {
-  background-color: rgba(37, 99, 235, 0.1);
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  color: #2563eb;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
 }
 
-.status-message.minimal {
-  background-color: rgba(22, 163, 74, 0.1);
-  border: 1px solid rgba(22, 163, 74, 0.2);
-  color: #16a34a;
-}
-
-.dark-mode .status-message {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }

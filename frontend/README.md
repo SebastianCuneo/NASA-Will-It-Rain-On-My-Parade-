@@ -1,4 +1,4 @@
-# The Parade Planner - React Frontend
+# UcuWeather - React Frontend
 
 ## NASA Space Apps Challenge - Modern React Application
 
@@ -28,7 +28,7 @@ frontend/
 │   ├── App.css            # Main styles and animations
 │   ├── index.js           # React entry point
 │   └── components/
-│       ├── RiskForm.jsx   # Weather risk form component
+│       ├── WeatherForm.jsx   # Weather risk form component
 │       └── WeatherResults.jsx # Results display component
 ├── backup/
 │   └── index-original.html # Original HTML design (backup)
