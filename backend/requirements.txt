@@ -1,8 +1,6 @@
-streamlit
-pandas
-altair
 fastapi
 uvicorn
+pandas
+numpy
 python-multipart
-
-
+pydantic

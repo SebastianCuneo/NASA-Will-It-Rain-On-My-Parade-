@@ -1,0 +1,358 @@
+/**
+ * The Parade Planner - Main Styles
+ * NASA Space Apps Challenge - React Application Styles
+ */
+
+/* Import Tailwind CSS */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom CSS Variables */
+:root {
+  --nasa-blue: #0B3D91;
+  --nasa-red: #FC3D21;
+  --gemini-green: #34D399;
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  transition: background-color 1s ease-in-out, color 0.5s ease-in-out;
+  min-height: 100vh;
+}
+
+/* Dark Mode Styles */
+.dark-mode {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
+  color: #ffffff;
+}
+
+.day-mode {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #c7d2fe 100%);
+  color: #1f2937;
+}
+
+/* Loading Animation */
+.loading-ring {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { 
+    transform: rotate(360deg); 
+  }
+}
+
+/* Cloud Animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-10px) translateX(5px);
+  }
+  50% {
+    transform: translateY(-5px) translateX(-5px);
+  }
+  75% {
+    transform: translateY(-15px) translateX(3px);
+  }
+}
+
+@keyframes float-delayed {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-8px) translateX(-3px);
+  }
+  50% {
+    transform: translateY(-12px) translateX(7px);
+  }
+  75% {
+    transform: translateY(-6px) translateX(-2px);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-5px) translateX(3px);
+  }
+  50% {
+    transform: translateY(-8px) translateX(-4px);
+  }
+  75% {
+    transform: translateY(-3px) translateX(6px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 8s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-float-slow {
+  animation: float-slow 10s ease-in-out infinite;
+  animation-delay: 4s;
+}
+
+/* Form Styles */
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  color: inherit;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--nasa-blue);
+  box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.1);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.day-mode .form-input {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1f2937;
+  border-color: rgba(156, 163, 175, 0.3);
+}
+
+.day-mode .form-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--nasa-blue);
+  box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.1);
+}
+
+.day-mode .form-input::placeholder {
+  color: rgba(31, 41, 55, 0.6);
+}
+
+/* Button Styles */
+.btn-primary {
+  background: linear-gradient(135deg, var(--nasa-blue) 0%, #1e40af 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(11, 61, 145, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(11, 61, 145, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Risk Badge Styles */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.risk-badge.high {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.risk-badge.moderate {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fed7aa;
+}
+
+.risk-badge.low {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.risk-badge.minimal {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.dark-mode .risk-badge.high {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.dark-mode .risk-badge.moderate {
+  background-color: rgba(217, 119, 6, 0.2);
+  color: #fed7aa;
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+.dark-mode .risk-badge.low {
+  background-color: rgba(37, 99, 235, 0.2);
+  color: #93c5fd;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.dark-mode .risk-badge.minimal {
+  background-color: rgba(22, 163, 74, 0.2);
+  color: #86efac;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+/* Card Styles */
+.weather-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.weather-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.day-mode .weather-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #1f2937;
+}
+
+.day-mode .weather-card:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .grid-cols-1.lg\\:grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  .max-w-4xl {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Animation for results */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Status message styles */
+.status-message {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  font-weight: 500;
+}
+
+.status-message.high {
+  background-color: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: #dc2626;
+}
+
+.status-message.moderate {
+  background-color: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  color: #d97706;
+}
+
+.status-message.low {
+  background-color: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: #2563eb;
+}
+
+.status-message.minimal {
+  background-color: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: #16a34a;
+}
+
+.dark-mode .status-message {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
