@@ -303,9 +303,58 @@ button:disabled {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .max-w-md {
+  .max-w-7xl {
     max-width: 100%;
     padding: 1rem;
+  }
+  
+  .grid-cols-1.lg\\:grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Desktop enhancements */
+@media (min-width: 1024px) {
+  .lg\\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  
+  .lg\\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  
+  .lg\\:gap-12 {
+    gap: 3rem;
+  }
+  
+  .lg\\:p-8 {
+    padding: 2rem;
+  }
+  
+  .lg\\:my-12 {
+    margin-top: 3rem;
+    margin-bottom: 3rem;
+  }
+}
+
+/* Enhanced hover effects for desktop */
+@media (hover: hover) {
+  .selectable-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .selectable-option.selected:hover {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 12px 30px rgba(96, 165, 250, 0.3);
+  }
+}
+
+/* Improved backdrop blur for desktop */
+@media (min-width: 768px) {
+  .backdrop-blur-sm {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
 

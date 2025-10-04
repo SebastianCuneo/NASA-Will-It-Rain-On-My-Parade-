@@ -130,48 +130,100 @@ function App() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-md mx-auto p-4 md:p-6 app-content">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 app-content">
         {/* Header */}
-        <header className="text-center my-8">
-          <h1 className="text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
+        <header className="text-center my-8 lg:my-12">
+          <h1 className="text-5xl lg:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
             UcuWeather
           </h1>
-          <p className="text-slate-400 mt-2 flex items-center justify-center space-x-2">
+          <p className="text-slate-400 mt-4 flex items-center justify-center space-x-2 text-lg">
             <span>Planifica tu día perfecto con</span>
             <img
-              src="https://placehold.co/80x20/0B3D91/FFFFFF?text=NASA"
+              src="https://placehold.co/100x25/0B3D91/FFFFFF?text=NASA"
               alt="Logo de la NASA"
-              className="inline h-5 w-auto rounded-md"
+              className="inline h-6 w-auto rounded-md"
             />
           </p>
         </header>
 
-        {/* Main Form */}
-        <main>
-          <WeatherForm
-            onSubmit={handleFormSubmit}
-            loading={loading}
-            isNightMode={isNightMode}
-            initialData={formData}
-          />
-
-          {/* Temporary Message */}
-          {tempMessage && (
-            <div className={`mt-3 p-3 text-center rounded-lg font-bold transition-all duration-300 ${
-              tempMessage.type === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+        {/* Main Layout - Desktop: Side by side, Mobile: Stacked */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          
+          {/* Left Column - Form */}
+          <div className="space-y-6">
+            <div className={`p-6 lg:p-8 rounded-2xl shadow-2xl backdrop-blur-sm ${
+              isNightMode 
+                ? 'bg-slate-800/70 border border-slate-700' 
+                : 'bg-white/90 border border-white/30'
             }`}>
-              {tempMessage.message}
-            </div>
-          )}
-        </main>
+              <h2 className={`text-2xl font-bold mb-6 ${
+                isNightMode ? 'text-white' : 'text-gray-800'
+              }`}>
+                📍 Configuración del Evento
+              </h2>
+              
+              <WeatherForm
+                onSubmit={handleFormSubmit}
+                loading={loading}
+                isNightMode={isNightMode}
+                initialData={formData}
+              />
 
-        {/* Results Section */}
-        {results && (
-          <WeatherResults
-            data={results}
-            isNightMode={isNightMode}
-          />
-        )}
+              {/* Temporary Message */}
+              {tempMessage && (
+                <div className={`mt-4 p-4 text-center rounded-lg font-bold transition-all duration-300 ${
+                  tempMessage.type === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                }`}>
+                  {tempMessage.message}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Results */}
+          <div className="space-y-6">
+            <div className={`p-6 lg:p-8 rounded-2xl shadow-2xl backdrop-blur-sm ${
+              isNightMode 
+                ? 'bg-slate-800/70 border border-slate-700' 
+                : 'bg-white/90 border border-white/30'
+            }`}>
+              <h2 className={`text-2xl font-bold mb-6 ${
+                isNightMode ? 'text-white' : 'text-gray-800'
+              }`}>
+                📊 Análisis de Riesgo
+              </h2>
+              
+              {loading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="loading-ring"></div>
+                  <span className={`ml-3 text-lg ${
+                    isNightMode ? 'text-white' : 'text-gray-600'
+                  }`}>
+                    Analizando datos de la NASA...
+                  </span>
+                </div>
+              )}
+
+              {results && (
+                <WeatherResults
+                  data={results}
+                  isNightMode={isNightMode}
+                />
+              )}
+
+              {!loading && !results && (
+                <div className={`text-center py-12 ${
+                  isNightMode ? 'text-slate-400' : 'text-gray-500'
+                }`}>
+                  <div className="text-6xl mb-4">🌤️</div>
+                  <p className="text-lg">
+                    Completa el formulario para obtener el análisis de riesgo climático
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
