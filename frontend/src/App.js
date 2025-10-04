@@ -133,14 +133,19 @@ function App() {
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 app-content">
         {/* Header */}
         <header className="text-center my-8 lg:my-12">
-                      <h1 className="text-5xl lg:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
+                      <h1 className="text-5xl lg:text-6xl font-black tracking-tight" style={{
+                        color: isNightMode ? 'var(--nasa-white)' : '#1a365d',
+                        textShadow: isNightMode 
+                          ? '2px 2px 4px rgba(0,0,0,0.8)' 
+                          : '2px 2px 4px rgba(255,255,255,0.8)'
+                      }}>
                         NASA Weather Risk Navigator
                       </h1>
-          <p className="text-slate-400 mt-4 flex items-center justify-center space-x-2 text-lg">
-            <span>Planifica tu día perfecto con</span>
+          <p className={`mt-4 flex items-center justify-center space-x-2 text-lg ${isNightMode ? 'text-slate-300' : 'text-gray-700'}`}>
+            <span>Plan your perfect day with</span>
             <img
               src="https://placehold.co/100x25/0B3D91/FFFFFF?text=NASA"
-              alt="Logo de la NASA"
+              alt="NASA Logo"
               className="inline h-6 w-auto rounded-md"
             />
           </p>
@@ -159,7 +164,7 @@ function App() {
               <h2 className={`text-2xl font-bold mb-6 ${
                 isNightMode ? 'text-white' : 'text-gray-800'
               }`}>
-                📍 Configuración del Evento
+                📍 Event Configuration
               </h2>
               
               <WeatherForm
@@ -190,7 +195,7 @@ function App() {
               <h2 className={`text-2xl font-bold mb-6 ${
                 isNightMode ? 'text-white' : 'text-gray-800'
               }`}>
-                📊 Análisis de Riesgo
+                📊 Risk Analysis
               </h2>
               
               {loading && (
@@ -199,7 +204,7 @@ function App() {
                   <span className={`ml-3 text-lg ${
                     isNightMode ? 'text-white' : 'text-gray-600'
                   }`}>
-                    Analizando datos de la NASA...
+                    Analyzing NASA data...
                   </span>
                 </div>
               )}
@@ -213,11 +218,11 @@ function App() {
 
               {!loading && !results && (
                 <div className={`text-center py-12 ${
-                  isNightMode ? 'text-slate-400' : 'text-gray-500'
+                  isNightMode ? 'text-slate-300' : 'text-gray-600'
                 }`}>
                   <div className="text-6xl mb-4">🌤️</div>
                   <p className="text-lg">
-                    Completa el formulario para obtener el análisis de riesgo climático
+                    Complete the form to get the climate risk analysis
                   </p>
                 </div>
               )}

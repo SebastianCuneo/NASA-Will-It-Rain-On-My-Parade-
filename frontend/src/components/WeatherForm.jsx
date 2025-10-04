@@ -10,20 +10,20 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const [formData, setFormData] = useState(initialData);
 
   const weatherOptions = [
-    { id: 'wet', emoji: '🌧️', label: 'Muy Lluvioso' },
-    { id: 'hot', emoji: '🔥', label: 'Muy Caluroso' },
-    { id: 'cold', emoji: '❄️', label: 'Muy Frío' },
-    { id: 'windy', emoji: '💨', label: 'Muy Ventoso' },
-    { id: 'uncomfortable', emoji: '🥵', label: 'Incómodo' },
-    { id: 'uv', emoji: '☀️', label: 'Radiación UV' }
+    { id: 'wet', emoji: '🌧️', label: 'Very Rainy' },
+    { id: 'hot', emoji: '🔥', label: 'Very Hot' },
+    { id: 'cold', emoji: '❄️', label: 'Very Cold' },
+    { id: 'windy', emoji: '💨', label: 'Very Windy' },
+    { id: 'uncomfortable', emoji: '🥵', label: 'Uncomfortable' },
+    { id: 'uv', emoji: '☀️', label: 'UV Radiation' }
   ];
 
   const activityOptions = [
-    { id: 'surf', emoji: '🏄', label: 'Surfear' },
-    { id: 'beach', emoji: '🏖️', label: 'Día de Playa' },
-    { id: 'run', emoji: '🏃‍♂️', label: 'Correr' },
-    { id: 'hike', emoji: '⛰️', label: 'Senderismo' },
-    { id: 'sailing', emoji: '⛵', label: 'Navegar' },
+    { id: 'surf', emoji: '🏄', label: 'Surfing' },
+    { id: 'beach', emoji: '🏖️', label: 'Beach Day' },
+    { id: 'run', emoji: '🏃‍♂️', label: 'Running' },
+    { id: 'hike', emoji: '⛰️', label: 'Hiking' },
+    { id: 'sailing', emoji: '⛵', label: 'Sailing' },
     { id: 'picnic', emoji: '🧺', label: 'Picnic' }
   ];
 
@@ -63,7 +63,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
         {/* Step 1: Location */}
         <div>
           <label htmlFor="location" className="block text-lg font-bold text-slate-300 mb-3">
-            Paso 1: Elige la ubicación
+            Step 1: Choose the location
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
@@ -79,7 +79,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
               value={formData.location}
               onChange={handleInputChange}
               className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 p-4"
-              placeholder="Ej: Montevideo, Uruguay"
+              placeholder="Ex: Montevideo, Uruguay"
               required
             />
           </div>
@@ -88,7 +88,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
         {/* Step 2: Date */}
         <div>
           <label htmlFor="date" className="block text-lg font-bold text-slate-300 mb-3">
-            Paso 2: Selecciona la fecha
+            Step 2: Select the date
           </label>
           <input
             type="date"
@@ -105,7 +105,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       {/* Step 3: Weather Conditions */}
       <div>
         <label className="block text-lg font-bold text-slate-300 mb-4">
-          Paso 3: ¿Qué condiciones te preocupan?
+          Step 3: What conditions concern you?
         </label>
         <div id="weather-options" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
           {weatherOptions.map((option) => (
@@ -126,7 +126,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       {/* Step 4: Activity (Optional) */}
       <div>
         <label className="block text-lg font-bold text-slate-300 mb-4">
-          Paso 4 (Opcional): Elige una actividad
+          Step 4 (Optional): Choose an activity
         </label>
         <div id="activity-options" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
           {activityOptions.map((option) => (
@@ -156,10 +156,10 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
           {loading ? (
             <>
               <span className="loading-ring"></span>
-              Analizando datos de la NASA...
+              Analyzing NASA data...
             </>
           ) : (
-            '🔍 Analizar Probabilidad Histórica'
+            '🔍 Analyze Historical Probability'
           )}
         </button>
       </div>

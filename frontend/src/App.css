@@ -9,11 +9,13 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* CSS Variables */
+/* CSS Variables - NASA Official Colors */
 :root {
   --nasa-blue: #0B3D91;
   --nasa-red: #FC3D21;
-  --gemini-green: #34D399;
+  --nasa-white: #FFFFFF;
+  --nasa-yellow: #e7f434;
+  --nasa-black: #151622;
 }
 
 /* Base Styles */
@@ -38,10 +40,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Selectable option styles */
 .selectable-option.selected {
   background-color: var(--nasa-blue) !important;
-  color: #fff !important;
-  border-color: #60a5fa !important;
+  color: var(--nasa-white) !important;
+  border-color: var(--nasa-yellow) !important;
   transform: scale(1.05);
-  box-shadow: 0 0 15px rgba(96, 165, 250, 0.5);
+  box-shadow: 0 0 15px rgba(231, 244, 52, 0.5);
 }
 
 /* Loading ring animation */
@@ -138,13 +140,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Night Mode Styles */
 .night-mode {
-  background-color: #05051a;
-  color: #fff;
+  background-color: var(--nasa-black);
+  color: var(--nasa-white);
   z-index: 10;
   background-image: 
-    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.8) 1px, transparent 1px),
-    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.7) 0.5px, transparent 0.5px),
-    radial-gradient(circle at 45% 55%, rgba(255, 255, 255, 0.6) 0.8px, transparent 0.8px);
+    radial-gradient(circle at 10% 20%, var(--nasa-yellow) 1px, transparent 1px),
+    radial-gradient(circle at 70% 80%, var(--nasa-white) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 45% 55%, var(--nasa-yellow) 0.8px, transparent 0.8px);
   background-size: 100vw 100vh, 200vw 200vh, 150vw 150vh;
   animation: move-stars 120s linear infinite;
 }
@@ -164,80 +166,85 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .night-mode #result-card, 
 .night-mode #activity-result-card, 
 .night-mode .bg-slate-800\/50 {
-  background-color: #1f2937;
-  border-color: #374151;
-  color: #fff;
+  background-color: var(--nasa-black);
+  border-color: var(--nasa-blue);
+  color: var(--nasa-white);
 }
 
 .night-mode #summary-message-container {
-  background-color: #1f2937;
-  border-color: #374151;
+  background-color: var(--nasa-black);
+  border-color: var(--nasa-blue);
 }
 
 .night-mode #summary-message {
-  color: #d1d5db;
+  color: var(--nasa-white);
 }
 
 /* Day Mode Styles */
 .day-mode {
-  background: linear-gradient(to bottom, #87CEFA 0%, #6A5ACD 150%);
-  color: #1f2937;
+  background: linear-gradient(to bottom, #87CEEB 0%, #4682B4 100%);
+  color: var(--nasa-black);
   animation: none !important;
 }
 
 .day-mode header p, 
 .day-mode label {
-  color: #374151;
+  color: var(--nasa-black);
 }
 
 .day-mode input {
-  background-color: #e5e7eb;
-  border-color: #d1d5db;
-  color: #1f2937;
+  background-color: var(--nasa-white);
+  border-color: var(--nasa-blue);
+  color: var(--nasa-black);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Day Mode - Non-selected options */
 .day-mode .selectable-option {
-  background-color: #f3f4f6;
-  border-color: #d1d5db;
-  color: #1f2937;
+  background-color: var(--nasa-white);
+  border-color: var(--nasa-blue);
+  color: var(--nasa-black);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .day-mode #result-card, 
 .day-mode #activity-result-card, 
 .day-mode .bg-slate-800\/50 {
-  background-color: #e5e7eb;
-  border-color: #d1d5db;
-  color: #1f2937;
+  background-color: var(--nasa-white);
+  border-color: var(--nasa-blue);
+  color: var(--nasa-black);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .day-mode .text-slate-400 {
-  color: #4b5563;
+  color: #4a5568;
 }
 
 .day-mode #summary-message-container {
-  background-color: #f3f4f6;
-  border-color: #d1d5db;
+  background-color: #f7fafc;
+  border-color: var(--nasa-blue);
 }
 
 .day-mode #summary-message {
-  color: #374151;
+  color: #2d3748;
 }
 
 .day-mode .bg-red-900\/20 {
-  background-color: #fecaca;
-  border-color: #ef4444;
-  color: #b91c1c;
+  background-color: rgba(252, 61, 33, 0.2);
+  border-color: var(--nasa-red);
+  color: var(--nasa-red);
 }
 
 .day-mode #mode-toggle-button {
-  color: #0B3D91;
-  background-color: #f3f4f6;
+  color: var(--nasa-blue);
+  background-color: var(--nasa-white);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .night-mode #mode-toggle-button {
-  color: #facc15;
-  background-color: #1f2937;
+  color: var(--nasa-yellow);
+  background-color: var(--nasa-black);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* App content should be above animation */
@@ -248,9 +255,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Form input styles */
 input {
-  background-color: #1f2937;
-  border: 1px solid #374151;
-  color: #fff;
+  background-color: var(--nasa-black);
+  border: 1px solid var(--nasa-blue);
+  color: var(--nasa-white);
   padding: 0.875rem;
   border-radius: 0.5rem;
   width: 100%;
@@ -259,8 +266,8 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--nasa-yellow);
+  box-shadow: 0 0 0 3px rgba(231, 244, 52, 0.3);
 }
 
 /* Button styles */
@@ -275,7 +282,7 @@ button:hover {
 button:focus {
   outline: none;
   ring: 4px;
-  ring-color: rgba(59, 130, 246, 0.5);
+  ring-color: rgba(231, 244, 52, 0.5);
 }
 
 /* Loading button styles */
