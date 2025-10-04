@@ -1,5 +1,6 @@
 /**
  * WeatherResults Component - Display Weather Risk Assessment Results
+ * NASA Weather Risk Navigator
  * Adapted from original HTML design with mock data
  */
 

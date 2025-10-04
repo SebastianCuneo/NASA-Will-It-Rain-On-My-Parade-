@@ -1,5 +1,5 @@
 """
-The Parade Planner - Backend API
+NASA Weather Risk Navigator - Backend API
 NASA Space Apps Challenge - FastAPI Backend
 """
 
@@ -69,7 +69,7 @@ except ImportError:
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="The Parade Planner API",
+    title="NASA Weather Risk Navigator API",
     description="NASA Space Apps Challenge - Weather Risk Assessment API",
     version="1.0.0"
 )
@@ -161,7 +161,7 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "The Parade Planner API",
+        "message": "NASA Weather Risk Navigator API",
         "version": "1.0.0",
         "description": "NASA Space Apps Challenge - Weather Risk Assessment",
         "endpoints": {
@@ -173,7 +173,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "The Parade Planner API"}
+    return {"status": "healthy", "service": "NASA Weather Risk Navigator API"}
 
 @app.post("/api/risk", response_model=RiskResponse)
 async def calculate_weather_risk(request: RiskRequest):

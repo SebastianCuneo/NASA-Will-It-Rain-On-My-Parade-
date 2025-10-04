@@ -1,5 +1,6 @@
 /**
  * WeatherForm Component - Weather Risk Assessment Form
+ * NASA Weather Risk Navigator
  * Adapted from original HTML design
  */
 

@@ -133,9 +133,9 @@ function App() {
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 app-content">
         {/* Header */}
         <header className="text-center my-8 lg:my-12">
-          <h1 className="text-5xl lg:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
-            UcuWeather
-          </h1>
+                      <h1 className="text-5xl lg:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">
+                        NASA Weather Risk Navigator
+                      </h1>
           <p className="text-slate-400 mt-4 flex items-center justify-center space-x-2 text-lg">
             <span>Planifica tu día perfecto con</span>
             <img

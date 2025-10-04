@@ -1,7 +1,7 @@
 {
-  "name": "parade-planner-frontend",
+  "name": "nasa-weather-risk-navigator-frontend",
   "version": "1.0.0",
-  "description": "The Parade Planner - NASA Space Apps Challenge Frontend",
+  "description": "NASA Weather Risk Navigator - NASA Space Apps Challenge Frontend",
   "private": true,
   "scripts": {
     "start": "react-scripts start",
