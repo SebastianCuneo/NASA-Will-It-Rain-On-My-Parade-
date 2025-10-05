@@ -36,7 +36,7 @@ NASA-Will-It-Rain-On-My-Parade-/
 │   └── api.py                  # FastAPI backend server
 ├── app.py                      # Original Streamlit MVP (legacy)
 ├── logic.py                    # Core business logic (REUSABLE MODULE)
-├── mock_data.csv              # Historical weather data
+├── mock_data.csv              # Mock historical weather data (5 years, 4 months)
 ├── requirements.txt           # Backend dependencies
 ├── START_HERE.md             # Quick start guide
 └── README.md                 # Project documentation
@@ -262,11 +262,12 @@ curl http://localhost:8000/health
 - `calculate_adverse_probability()`: Risk calculation engine
 - **Multi-variable Support**: Temperature and precipitation analysis
 
-#### `mock_data.csv` - Historical Data
+#### `mock_data.csv` - Mock Historical Data
 - **5 years** of simulated data (2020-2024)
 - **4 months** coverage (January-April)
 - **Dual Variables**: Temperature and precipitation data
-- **Montevideo Focus**: Realistic data for Uruguay region
+- **Montevideo Focus**: Realistic mock data for Uruguay region
+- **Purpose**: MVP demonstration with scientifically valid methodology
 
 ## 🔬 Methodology
 
@@ -331,11 +332,26 @@ curl http://localhost:8000/health
 ## 🌍 NASA Space Apps Context
 
 NASA Weather Risk Navigator addresses the **"Will It Rain On My Parade?"** challenge by:
-- **Modern Web Platform**: Professional-grade weather risk assessment
-- **Scientific Rigor**: NASA-grade data analysis methodology
-- **User-Centric Design**: Intuitive interface for all skill levels
-- **Educational Impact**: Making climate science accessible and engaging
-- **Real-world Application**: Practical tool for event planning decisions
+
+### 🎯 Core Value Proposition
+- **Democratizing Climate Science**: Making NASA-grade weather analysis accessible to everyone
+- **Scientific Rigor**: 90th percentile methodology based on atmospheric reanalysis principles
+- **Practical Application**: Real-world event planning with intelligent recommendations
+- **Educational Impact**: Climate change awareness through interactive visualizations
+
+### 🚀 What Makes It Special
+- **Modern Web Platform**: Professional-grade weather risk assessment with responsive design
+- **Intelligent Analysis**: Multi-variable risk assessment with automatic Plan B suggestions
+- **Real-time API**: FastAPI backend with comprehensive weather calculations
+- **Historical Context**: Past vs. present risk comparison showing climate change impacts
+- **Accessibility**: Works on any device with beautiful animations and intuitive UX
+
+### 📊 Technical Innovation
+- **Modular Architecture**: Frontend/Backend separation for scalability
+- **Mock Data Validation**: Proven methodology ready for real NASA datasets
+- **Responsive Design**: Mobile-first with desktop enhancements
+- **Theme System**: Dark/Light mode with animated backgrounds
+- **API-First Design**: Ready for Phase 2 NASA API integration
 
 ## 📈 Future Enhancements
 

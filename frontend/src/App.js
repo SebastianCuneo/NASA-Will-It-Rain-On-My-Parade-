@@ -160,6 +160,8 @@ function App() {
           <div id="cloud-1" className="cloud"></div>
           <div id="cloud-2" className="cloud"></div>
           <div id="cloud-3" className="cloud"></div>
+          <div id="cloud-4" className="cloud"></div>
+          <div id="cloud-5" className="cloud"></div>
         </div>
       )}
 

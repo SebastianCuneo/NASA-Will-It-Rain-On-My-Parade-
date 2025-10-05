@@ -150,7 +150,15 @@ React Frontend (Port 3000) ←→ FastAPI Backend (Port 8000) ←→ Mock Data (
     Form Management             API Endpoints
     Results Display             Data Processing
     Responsive Design           Error Handling
+    Dark/Light Mode            Mock Data Validation
+    Plan B Suggestions         Scientific Methodology
 ```
+
+### 📊 Data Architecture
+- **Mock Data**: 5 years of simulated weather data (2020-2024)
+- **Variables**: Temperature and precipitation for Montevideo region
+- **Methodology**: 90th percentile risk assessment
+- **Purpose**: MVP demonstration with scientifically valid approach
 
 ### 🎨 Advanced Design Features
 
@@ -171,13 +179,15 @@ React Frontend (Port 3000) ←→ FastAPI Backend (Port 8000) ←→ Mock Data (
 
 ### 🌟 Key Features
 
-- **Multi-step Form**: Intuitive 4-step process
-- **Activity Compatibility**: Smart analysis with alternative suggestions
-- **Historical Context**: Past vs. present risk comparison
-- **Visual Risk Indicators**: Color-coded risk levels
-- **Plan B Intelligence**: Automatic alternative activity suggestions
-- **Responsive Design**: Perfect on all devices
+- **Multi-step Form**: Intuitive 4-step process (Location → Date → Conditions → Activity)
+- **Activity Compatibility**: Smart analysis with automatic Plan B suggestions
+- **Historical Context**: Past vs. present risk comparison showing climate change
+- **Visual Risk Indicators**: Color-coded risk levels (HIGH/MODERATE/LOW/MINIMAL)
+- **Plan B Intelligence**: AI-powered alternative activity suggestions
+- **Responsive Design**: Perfect on all devices with desktop enhancements
 - **Theme Persistence**: Remembers user's theme preference
+- **Mock Data Validation**: Proven methodology ready for real NASA datasets
+- **Educational Impact**: Climate science made accessible and engaging
 
 ### 🚀 Ready for Phase 2!
 
