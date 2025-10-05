@@ -72,11 +72,45 @@ function App() {
     setLoading(true);
     setResults(null);
 
-    // Simulate API call delay
-    setTimeout(() => {
+    try {
+      // Call the FastAPI backend
+      const response = await fetch('http://localhost:8000/api/risk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lat: -34.90,  // Montevideo coordinates
+          lon: -56.16,
+          month: new Date(data.date).getMonth() + 1,  // Convert date to month
+          weather_conditions: data.weatherConditions,
+          activity: data.activity
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status}`);
+      }
+
+      const apiData = await response.json();
+      
+      // Combine API data with form data
+      const combinedData = {
+        ...data,
+        apiResults: apiData,
+        temperature_risk: apiData.temperature_risk,
+        precipitation_risk: apiData.precipitation_risk
+      };
+
+      setResults(combinedData);
+    } catch (error) {
+      console.error('API Error:', error);
+      showTemporaryMessage('Error connecting to weather service. Using offline data.', 'warning');
+      // Fallback to mock data
       setResults(data);
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
   return (

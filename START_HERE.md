@@ -7,27 +7,64 @@
 - Node.js 16+
 - npm or yarn
 
-### ⚡ Quick Start (3 Steps)
+### ⚡ Quick Start (5 Steps)
 
-#### 1. Install Backend Dependencies
+#### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd NASA-Will-It-Rain-On-My-Parade-
+```
+
+#### 2. Install Backend Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-#### 2. Start Backend Server
-```bash
-cd backend
-python -m uvicorn api:app --reload
-```
-**Backend will be available at:** http://localhost:8000
-
-#### 3. Start Frontend Application
+#### 3. Install Frontend Dependencies
 ```bash
 cd frontend
 npm install
+cd ..
+```
+
+#### 4. Start Backend Server
+```bash
+cd backend
+python -m uvicorn api:app --reload --port 8000
+```
+**Backend will be available at:** http://localhost:8000
+
+#### 5. Start Frontend Application
+```bash
+cd frontend
 npm start
 ```
 **Frontend will be available at:** http://localhost:3000
+
+### 🚀 Complete Command Sequence
+Copy and paste this complete sequence:
+
+```bash
+# 1. Clone repository
+git clone <repository-url>
+cd NASA-Will-It-Rain-On-My-Parade-
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Install Node.js dependencies
+cd frontend
+npm install
+cd ..
+
+# 4. Start backend (Terminal 1)
+cd backend
+python -m uvicorn api:app --reload --port 8000
+
+# 5. Start frontend (Terminal 2)
+cd frontend
+npm start
+```
 
 ### 🎯 What You'll See
 
@@ -59,6 +96,50 @@ npm start
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
+
+### 🐛 Troubleshooting
+
+**Common Issues:**
+
+1. **Port already in use:**
+   ```bash
+   # Kill process on port 3000
+   npx kill-port 3000
+   
+   # Kill process on port 8000
+   npx kill-port 8000
+   ```
+
+2. **Python dependencies not found:**
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt --force-reinstall
+   ```
+
+3. **Node modules issues:**
+   ```bash
+   cd frontend
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+4. **API connection issues:**
+   - Ensure backend is running on port 8000
+   - Check that both terminals are running
+   - Verify proxy settings in `frontend/package.json`
+
+### 📊 Testing the Setup
+
+**Test Backend API:**
+```bash
+curl http://localhost:8000/health
+# Expected: {"status": "healthy", "service": "NASA Weather Risk Navigator API"}
+```
+
+**Test Frontend:**
+- Open http://localhost:3000
+- Fill out the form
+- Submit and verify results appear
 
 ### 🏗️ Modern Architecture
 

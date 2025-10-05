@@ -50,45 +50,176 @@ NASA-Will-It-Rain-On-My-Parade-/
 - npm or yarn
 
 ### Quick Start
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd NASA-Will-It-Rain-On-My-Parade-
-   ```
 
-2. **Install backend dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+#### Step 1: Clone the Repository
+```bash
+git clone <repository-url>
+cd NASA-Will-It-Rain-On-My-Parade-
+```
 
-3. **Install frontend dependencies**
-   ```bash
-   cd frontend
-   npm install
-   cd ..
-   ```
+#### Step 2: Install Backend Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-4. **Start the application**
-   ```bash
-   # Terminal 1 - Backend
-   cd backend
-   python -m uvicorn api:app --reload
-   
-   # Terminal 2 - Frontend
-   cd frontend
-   npm start
-   ```
+#### Step 3: Install Frontend Dependencies
+```bash
+cd frontend
+npm install
+cd ..
+```
 
-5. **Access the application**
-   - **Frontend**: http://localhost:3000
-   - **Backend API**: http://localhost:8000
-   - **API Docs**: http://localhost:8000/docs
+#### Step 4: Start the Application
 
-### Alternative: Legacy Streamlit Version
+**Option A: Modern React + FastAPI (Recommended)**
+
+Open **2 terminals** and run:
+
+**Terminal 1 - Backend Server:**
+```bash
+cd backend
+python -m uvicorn api:app --reload --port 8000
+```
+
+**Terminal 2 - Frontend Server:**
+```bash
+cd frontend
+npm start
+```
+
+**Option B: Legacy Streamlit Version**
 ```bash
 streamlit run app.py
-# Access at: http://localhost:8501
 ```
+
+#### Step 5: Access the Application
+
+**Modern Version (React + FastAPI):**
+- 🌐 **Frontend**: http://localhost:3000
+- 🔧 **Backend API**: http://localhost:8000
+- 📚 **API Documentation**: http://localhost:8000/docs
+- ❤️ **Health Check**: http://localhost:8000/health
+
+**Legacy Version (Streamlit):**
+- 🌐 **Dashboard**: http://localhost:8501
+
+### 🚀 Complete Command Sequence
+
+Copy and paste this complete sequence to get everything running:
+
+```bash
+# 1. Clone repository
+git clone <repository-url>
+cd NASA-Will-It-Rain-On-My-Parade-
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Install Node.js dependencies
+cd frontend
+npm install
+cd ..
+
+# 4. Start backend (Terminal 1)
+cd backend
+python -m uvicorn api:app --reload --port 8000
+
+# 5. Start frontend (Terminal 2)
+cd frontend
+npm start
+```
+
+### 🔧 Development Commands
+
+**Backend Commands:**
+```bash
+# Start backend server
+cd backend
+python -m uvicorn api:app --reload
+
+# Test API endpoints
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/api/risk \
+  -H "Content-Type: application/json" \
+  -d '{"lat": -34.90, "lon": -56.16, "month": 3}'
+```
+
+**Frontend Commands:**
+```bash
+# Start development server
+cd frontend
+npm start
+
+# Build for production
+npm run build
+
+# Run tests
+npm test
+
+# Install new dependencies
+npm install <package-name>
+```
+
+**Legacy Streamlit Commands:**
+```bash
+# Run Streamlit app
+streamlit run app.py
+
+# Run with specific port
+streamlit run app.py --server.port 8501
+
+# Run headless (no browser)
+streamlit run app.py --server.headless true
+```
+
+### 🐛 Troubleshooting
+
+**Common Issues:**
+
+1. **Port already in use:**
+   ```bash
+   # Kill process on port 3000
+   npx kill-port 3000
+   
+   # Kill process on port 8000
+   npx kill-port 8000
+   ```
+
+2. **Python dependencies not found:**
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt --force-reinstall
+   ```
+
+3. **Node modules issues:**
+   ```bash
+   cd frontend
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+4. **API connection issues:**
+   - Ensure backend is running on port 8000
+   - Check CORS settings in `backend/api.py`
+   - Verify proxy settings in `frontend/package.json`
+
+### 📊 Testing the Setup
+
+**Test Backend API:**
+```bash
+curl http://localhost:8000/health
+# Expected: {"status": "healthy", "service": "NASA Weather Risk Navigator API"}
+```
+
+**Test Frontend:**
+- Open http://localhost:3000
+- Fill out the form
+- Submit and verify results appear
+
+**Test Integration:**
+- Frontend should successfully call backend API
+- Results should display weather risk analysis
+- Plan B suggestions should appear for incompatible activities
 
 ## 📊 Technical Architecture
 
