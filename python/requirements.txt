@@ -1,0 +1,3 @@
+python -m streamlit run dashboard_meteo_streamlit.py
+
+
