@@ -119,11 +119,44 @@ const WeatherResults = ({ data, isNightMode }) => {
     }
     
     if (badCondition) {
+        // Get actual probability for the condition
+        let actualProbability = 0;
+        if (apiResults && temperature_risk && precipitation_risk) {
+          // Use real API data
+          if (badCondition === 'hot') {
+            actualProbability = temperature_risk.probability;
+          } else if (badCondition === 'wet') {
+            actualProbability = precipitation_risk.probability;
+          } else if (badCondition === 'cold') {
+            // For cold weather, calculate inverse of hot weather probability
+            // If hot weather probability is low, cold weather probability is high
+            actualProbability = Math.max(0, 100 - temperature_risk.probability);
+          } else {
+            // Use mock data for other conditions
+            actualProbability = mockData[badCondition].percentage;
+          }
+        } else {
+          // Use mock data
+          actualProbability = mockData[badCondition].percentage;
+        }
+        
+        // Generate appropriate message based on actual probability
+        let probabilityText = '';
+        if (actualProbability < 10) {
+          probabilityText = 'low probability';
+        } else if (actualProbability < 20) {
+          probabilityText = 'moderate probability';
+        } else {
+          probabilityText = 'high probability';
+        }
+        
         return { 
-          isGood: false, 
+          isGood: actualProbability < 15, // Consider it good if probability is low
           name: currentActivity.name, 
-          icon: '👎', 
-          message: `Doesn't seem like the best day. The high probability of ${mockData[badCondition].text} weather could complicate the activity.`, 
+          icon: actualProbability < 15 ? '👍' : '👎', 
+          message: actualProbability < 15 
+            ? `Great day for your activity! Low probability of ${mockData[badCondition].text} weather.`
+            : `Doesn't seem like the best day. The ${probabilityText} of ${mockData[badCondition].text} weather could complicate the activity.`, 
           reason: mockData[badCondition].text 
         };
     } else {
