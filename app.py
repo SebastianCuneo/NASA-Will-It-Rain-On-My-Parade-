@@ -105,8 +105,7 @@ if st.button("🔍 Analyze Weather Risk", type="primary"):
         ).properties(
             width=600,
             height=400,
-            title=f"Temperature Distribution for {['January', 'February', 'March', 'April', 'May', 'June',
-                                                   'July', 'August', 'September', 'October', 'November', 'December'][month-1]}"
+            title=f"Temperature Distribution for {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][month-1]}"
         )
         
         # Add threshold line

@@ -195,8 +195,8 @@ async def calculate_weather_risk(request: RiskRequest):
         if not (1 <= request.month <= 12):
             raise HTTPException(status_code=400, detail="Month must be between 1 and 12")
         
-        # Load historical data for the specified month
-        monthly_data = load_historical_data(request.month)
+        # Load historical data for the specified month and coordinates
+        monthly_data = load_historical_data(request.month, request.lat, request.lon)
         
         # Calculate temperature risk
         temperature_risk_data = calculate_adverse_probability(monthly_data)
@@ -228,8 +228,8 @@ async def calculate_weather_risk(request: RiskRequest):
 async def test_endpoint():
     """Test endpoint to verify API functionality"""
     try:
-        # Test with March data
-        monthly_data = load_historical_data(3)
+        # Test with March data using default Montevideo coordinates
+        monthly_data = load_historical_data(3, -34.90, -56.16)
         temp_risk = calculate_adverse_probability(monthly_data)
         precip_risk = calculate_precipitation_risk(monthly_data)
         

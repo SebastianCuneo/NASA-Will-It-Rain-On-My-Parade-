@@ -80,9 +80,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          lat: -34.90,  // Montevideo coordinates
-          lon: -56.16,
-          month: new Date(data.date).getMonth() + 1,  // Convert date to month
+          lat: data.latitude,  // Use coordinates from form
+          lon: data.longitude,
+          month: new Date(data.event_date).getMonth() + 1,  // Convert date to month
           weather_conditions: data.weatherConditions,
           activity: data.activity
         })

@@ -4,10 +4,91 @@
  * Adapted from original HTML design
  */
 
-/* Import Tailwind CSS */
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+/* Custom CSS without Tailwind - NASA Weather Risk Navigator */
+
+/* Utility Classes */
+.min-h-screen { min-height: 100vh; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.top-4 { top: 1rem; }
+.right-4 { right: 1rem; }
+.p-2 { padding: 0.5rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+.rounded-full { border-radius: 9999px; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-2xl { border-radius: 1rem; }
+.shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+.transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.duration-300 { transition-duration: 300ms; }
+.z-20 { z-index: 20; }
+.z-10 { z-index: 10; }
+.w-6 { width: 1.5rem; }
+.h-6 { height: 1.5rem; }
+.hidden { display: none; }
+.block { display: block; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.space-x-2 > * + * { margin-left: 0.5rem; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
+.text-center { text-align: center; }
+.text-5xl { font-size: 3rem; line-height: 1; }
+.text-6xl { font-size: 3.75rem; line-height: 1; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-6xl { font-size: 3.75rem; line-height: 1; }
+.font-black { font-weight: 900; }
+.font-bold { font-weight: 700; }
+.tracking-tight { letter-spacing: -0.025em; }
+.mt-4 { margin-top: 1rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.my-8 { margin-top: 2rem; margin-bottom: 2rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.max-w-7xl { max-width: 80rem; }
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.gap-8 { gap: 2rem; }
+.gap-12 { gap: 3rem; }
+.inline { display: inline; }
+.h-6 { height: 1.5rem; }
+.w-auto { width: auto; }
+.rounded-md { border-radius: 0.375rem; }
+.py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+.ml-3 { margin-left: 0.75rem; }
+.backdrop-blur-sm { backdrop-filter: blur(4px); }
+.border { border-width: 1px; }
+.border-slate-700 { border-color: #334155; }
+.border-white\/30 { border-color: rgba(255, 255, 255, 0.3); }
+.bg-slate-800\/70 { background-color: rgba(30, 41, 59, 0.7); }
+.bg-white\/90 { background-color: rgba(255, 255, 255, 0.9); }
+.text-white { color: #ffffff; }
+.text-gray-800 { color: #1f2937; }
+.text-gray-700 { color: #374151; }
+.text-gray-600 { color: #4b5563; }
+.text-slate-300 { color: #cbd5e1; }
+.text-slate-400 { color: #94a3b8; }
+.bg-red-500\/20 { background-color: rgba(239, 68, 68, 0.2); }
+.bg-green-500\/20 { background-color: rgba(34, 197, 94, 0.2); }
+.text-red-400 { color: #f87171; }
+.text-green-400 { color: #4ade80; }
+
+/* Responsive Grid */
+@media (min-width: 1024px) {
+  .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lg\:p-8 { padding: 2rem; }
+  .lg\:my-12 { margin-top: 3rem; margin-bottom: 3rem; }
+  .lg\:text-6xl { font-size: 3.75rem; line-height: 1; }
+  .lg\:gap-12 { gap: 3rem; }
+}
+
+@media (min-width: 768px) {
+  .md\:p-6 { padding: 1.5rem; }
+}
 
 /* CSS Variables - NASA Official Colors */
 :root {
