@@ -87,13 +87,18 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       return; // Stop submission if validation fails
     }
     
-    // Create payload with coordinates
+    // Create payload with coordinates - ensure explicit float conversion
     const payload = {
       ...formData,
-      latitude: lat,
-      longitude: lon,
-      event_date: formData.date
+      latitude: parseFloat(lat), // Asegurar que es un número flotante
+      longitude: parseFloat(lon), // Asegurar que es un número flotante
+      event_date: formData.date,
+      adverse_condition: formData.weatherConditions[0] || 'hot' // Send first selected condition
     };
+    
+    // Debugging: Log payload before sending
+    console.log('WeatherForm Payload:', payload);
+    console.log('Coordinates:', { lat: payload.latitude, lon: payload.longitude });
     
     onSubmit(payload);
   };
@@ -107,68 +112,72 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
           <label className="block text-lg font-bold text-slate-300 mb-3">
             Step 1: Choose the location coordinates
           </label>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Latitude Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-              </div>
-              <input
-                type="number"
-                id="latitude"
-                name="latitude"
-                value={lat}
-                onChange={handleLatitudeChange}
-                className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 p-3"
-                placeholder="Latitude (-90 to 90)"
-                step="0.000001"
-                min="-90"
-                max="90"
-                required
-              />
-              <label htmlFor="latitude" className="absolute -top-2 left-3 bg-slate-800 px-2 text-xs text-slate-400">
+            <div className="space-y-2">
+              <label htmlFor="latitude" className="block text-sm font-medium text-slate-300">
                 Latitude
               </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  </svg>
+                </div>
+                <input
+                  type="number"
+                  id="latitude"
+                  name="latitude"
+                  value={lat}
+                  onChange={handleLatitudeChange}
+                  className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 p-3"
+                  placeholder="Latitude (-90 to 90)"
+                  step="0.000001"
+                  min="-90"
+                  max="90"
+                  required
+                />
+              </div>
             </div>
             
             {/* Longitude Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-              </div>
-              <input
-                type="number"
-                id="longitude"
-                name="longitude"
-                value={lon}
-                onChange={handleLongitudeChange}
-                className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 p-3"
-                placeholder="Longitude (-180 to 180)"
-                step="0.000001"
-                min="-180"
-                max="180"
-                required
-              />
-              <label htmlFor="longitude" className="absolute -top-2 left-3 bg-slate-800 px-2 text-xs text-slate-400">
+            <div className="space-y-2">
+              <label htmlFor="longitude" className="block text-sm font-medium text-slate-300">
                 Longitude
               </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  </svg>
+                </div>
+                <input
+                  type="number"
+                  id="longitude"
+                  name="longitude"
+                  value={lon}
+                  onChange={handleLongitudeChange}
+                  className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 p-3"
+                  placeholder="Longitude (-180 to 180)"
+                  step="0.000001"
+                  min="-180"
+                  max="180"
+                  required
+                />
+              </div>
             </div>
             
             {/* Error Message */}
             {coordinateError && (
-              <div className="text-red-400 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+              <div className="text-red-400 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3 mt-2">
                 {coordinateError}
               </div>
             )}
             
             {/* Location Info */}
-            <div className="text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+            <div className="text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3 mt-4">
               <strong>Default:</strong> Montevideo, Uruguay (-34.90, -56.16)<br/>
               <strong>Tip:</strong> You can find coordinates using Google Maps or other mapping services.
             </div>

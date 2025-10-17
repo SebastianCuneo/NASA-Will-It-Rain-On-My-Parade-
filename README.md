@@ -80,6 +80,10 @@ Open **2 terminals** and run:
 
 **Terminal 1 - Backend Server:**
 ```bash
+# Desde el directorio raíz del proyecto:
+python -m uvicorn backend.api:app --reload --port 8000
+
+# O desde el directorio backend:
 cd backend
 python -m uvicorn api:app --reload --port 8000
 ```
@@ -124,8 +128,7 @@ npm install
 cd ..
 
 # 4. Start backend (Terminal 1)
-cd backend
-python -m uvicorn api:app --reload --port 8000
+python -m uvicorn backend.api:app --reload --port 8000
 
 # 5. Start frontend (Terminal 2)
 cd frontend
@@ -136,9 +139,12 @@ npm start
 
 **Backend Commands:**
 ```bash
-# Start backend server
+# Start backend server (desde directorio raíz)
+python -m uvicorn backend.api:app --reload --port 8000
+
+# O desde directorio backend
 cd backend
-python -m uvicorn api:app --reload
+python -m uvicorn api:app --reload --port 8000
 
 # Test API endpoints
 curl http://localhost:8000/health
@@ -422,8 +428,8 @@ For detailed setup instructions, see [START_HERE.md](START_HERE.md)
 
 ### Quick Commands
 ```bash
-# Backend
-cd backend && python -m uvicorn api:app --reload
+# Backend (desde directorio raíz)
+python -m uvicorn backend.api:app --reload --port 8000
 
 # Frontend  
 cd frontend && npm start

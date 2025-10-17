@@ -35,6 +35,9 @@
 .justify-center { justify-content: center; }
 .space-x-2 > * + * { margin-left: 0.5rem; }
 .space-y-6 > * + * { margin-top: 1.5rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.space-y-3 > * + * { margin-top: 0.75rem; }
+.space-y-2 > * + * { margin-top: 0.5rem; }
 .text-center { text-align: center; }
 .text-5xl { font-size: 3rem; line-height: 1; }
 .text-6xl { font-size: 3.75rem; line-height: 1; }
@@ -45,6 +48,7 @@
 .font-bold { font-weight: 700; }
 .tracking-tight { letter-spacing: -0.025em; }
 .mt-4 { margin-top: 1rem; }
+.mt-2 { margin-top: 0.5rem; }
 .mb-4 { margin-bottom: 1rem; }
 .mb-6 { margin-bottom: 1.5rem; }
 .my-8 { margin-top: 2rem; margin-bottom: 2rem; }
@@ -520,4 +524,30 @@ button:disabled {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
+}
+
+/* Form-specific spacing fixes */
+.form-field-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-field-group:last-child {
+  margin-bottom: 0;
+}
+
+.coordinate-input-group {
+  margin-bottom: 1rem;
+}
+
+.coordinate-input-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Ensure proper spacing for coordinate inputs */
+.space-y-4 > * + * {
+  margin-top: 1rem;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
 }
