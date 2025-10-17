@@ -11,6 +11,15 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import time
+import os
+
+# Import Gemini AI
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print("Warning: google-generativeai not installed. Plan B generation will be disabled.")
 
 
 def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int) -> pd.DataFrame:
@@ -288,12 +297,52 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+def get_seasonal_cold_threshold(month: int, activity: str = "general") -> float:
     """
-    Calculate cold weather risk using 10th percentile methodology
+    Get appropriate cold threshold based on season and activity type
+    
+    Args:
+        month: Month (1-12)
+        activity: Type of activity (beach, picnic, running, general)
+        
+    Returns:
+        float: Temperature threshold in Celsius
+    """
+    # Define seasonal adjustments for Southern Hemisphere
+    seasonal_adjustments = {
+        # Summer months (Dec, Jan, Feb) - More realistic thresholds
+        12: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
+        1: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
+        2: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
+        
+        # Autumn months (Mar, Apr, May)
+        3: {"base": 20.0, "beach": 23.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
+        4: {"base": 18.0, "beach": 21.0, "picnic": 16.0, "running": 14.0, "general": 18.0},
+        5: {"base": 16.0, "beach": 19.0, "picnic": 14.0, "running": 12.0, "general": 16.0},
+        
+        # Winter months (Jun, Jul, Aug)
+        6: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
+        7: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
+        8: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
+        
+        # Spring months (Sep, Oct, Nov)
+        9: {"base": 16.0, "beach": 19.0, "picnic": 14.0, "running": 12.0, "general": 16.0},
+        10: {"base": 18.0, "beach": 21.0, "picnic": 16.0, "running": 14.0, "general": 18.0},
+        11: {"base": 20.0, "beach": 23.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
+    }
+    
+    # Get threshold for the month and activity
+    month_data = seasonal_adjustments.get(month, seasonal_adjustments[1])  # Default to January
+    return month_data.get(activity, month_data["general"])
+
+
+def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -> Dict[str, Any]:
+    """
+    Calculate cold weather risk using seasonal and activity-aware methodology
     
     Args:
         monthly_data: DataFrame with temperature data
+        activity: Type of activity (beach, picnic, running, general)
         
     Returns:
         Dict with cold weather risk analysis
@@ -321,39 +370,357 @@ def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
             'adverse_count': 0
         }
     
-    # For beach activities, use a higher threshold (25°C) to determine cold risk
-    # This is more realistic for outdoor activities like beach days
-    beach_cold_threshold = 25.0  # Below 25°C is considered cold for beach activities
+    # Get the month from the data to determine season
+    month = monthly_data['Month'].iloc[0] if not monthly_data.empty else 1
     
-    # Count days with temperature below the beach cold threshold
-    cold_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] < beach_cold_threshold]
+    # Get appropriate cold threshold based on season and activity
+    cold_threshold = get_seasonal_cold_threshold(month, activity)
+    
+    # Count days with temperature below the cold threshold
+    cold_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] < cold_threshold]
     total_observations = len(monthly_data)
     cold_count = len(cold_events)
     
-    # Calculate probability of cold weather for beach activities
+    # Calculate probability of cold weather
     probability = (cold_count / total_observations) * 100 if total_observations > 0 else 0
     
-    # Determine risk level
+    # Get season name for context
+    season_names = {
+        12: "Summer", 1: "Summer", 2: "Summer",
+        3: "Autumn", 4: "Autumn", 5: "Autumn", 
+        6: "Winter", 7: "Winter", 8: "Winter",
+        9: "Spring", 10: "Spring", 11: "Spring"
+    }
+    season = season_names.get(month, "Unknown")
+    
+    # Determine risk level with activity-specific messages
     if probability >= 20:
         risk_level = "HIGH"
-        status_message = "🧊 HIGH RISK of cold weather. Bundle up!"
+        if activity == "beach":
+            status_message = f"🧊 HIGH RISK of cold weather for beach activities in {season}. Consider indoor alternatives!"
+        elif activity == "picnic":
+            status_message = f"🧊 HIGH RISK of cold weather for picnics in {season}. Bundle up or choose a warmer day!"
+        elif activity == "running":
+            status_message = f"🧊 HIGH RISK of cold weather for running in {season}. Dress in layers!"
+        else:
+            status_message = f"🧊 HIGH RISK of cold weather in {season}. Bundle up!"
     elif probability >= 10:
         risk_level = "MODERATE"
-        status_message = "❄️ MODERATE RISK of cold weather. Dress warmly."
+        if activity == "beach":
+            status_message = f"❄️ MODERATE RISK of cold weather for beach activities in {season}. Bring warm clothes!"
+        elif activity == "picnic":
+            status_message = f"❄️ MODERATE RISK of cold weather for picnics in {season}. Dress warmly!"
+        elif activity == "running":
+            status_message = f"❄️ MODERATE RISK of cold weather for running in {season}. Wear appropriate gear!"
+        else:
+            status_message = f"❄️ MODERATE RISK of cold weather in {season}. Dress warmly."
     elif probability >= 5:
         risk_level = "LOW"
-        status_message = "🌤️ LOW RISK of cold weather. Light jacket recommended."
+        if activity == "beach":
+            status_message = f"🌤️ LOW RISK of cold weather for beach activities in {season}. Light jacket recommended."
+        elif activity == "picnic":
+            status_message = f"🌤️ LOW RISK of cold weather for picnics in {season}. Light layers should be fine."
+        elif activity == "running":
+            status_message = f"🌤️ LOW RISK of cold weather for running in {season}. Comfortable conditions expected."
+        else:
+            status_message = f"🌤️ LOW RISK of cold weather in {season}. Light jacket recommended."
     else:
         risk_level = "MINIMAL"
-        status_message = "☀️ MINIMAL RISK of cold weather. Comfortable temperatures expected."
+        if activity == "beach":
+            status_message = f"☀️ MINIMAL RISK of cold weather for beach activities in {season}. Perfect beach weather!"
+        elif activity == "picnic":
+            status_message = f"☀️ MINIMAL RISK of cold weather for picnics in {season}. Ideal outdoor conditions!"
+        elif activity == "running":
+            status_message = f"☀️ MINIMAL RISK of cold weather for running in {season}. Excellent running weather!"
+        else:
+            status_message = f"☀️ MINIMAL RISK of cold weather in {season}. Comfortable temperatures expected."
     
     return {
         'probability': round(probability, 1),
-        'risk_threshold': round(beach_cold_threshold, 1),
+        'risk_threshold': round(cold_threshold, 1),
         'status_message': status_message,
         'risk_level': risk_level,
         'total_observations': total_observations,
-        'adverse_count': cold_count
+        'adverse_count': cold_count,
+        'season': season,
+        'activity': activity
+    }
+
+
+def generate_plan_b_with_gemini(
+    activity: str,
+    weather_condition: str,
+    risk_level: str,
+    location: str = "Montevideo, Uruguay",
+    season: str = "Summer"
+) -> Dict[str, Any]:
+    """
+    Generate intelligent Plan B suggestions using Gemini AI
+    
+    Args:
+        activity: Type of activity (beach, picnic, running, etc.)
+        weather_condition: Weather condition causing the risk (cold, hot, rainy, etc.)
+        risk_level: Risk level (HIGH, MODERATE, LOW, MINIMAL)
+        location: Location name for context
+        season: Current season
+        
+    Returns:
+        Dict with Plan B suggestions
+    """
+    if not GEMINI_AVAILABLE:
+        return {
+            "success": False,
+            "message": "Gemini AI not available. Please install google-generativeai package.",
+            "alternatives": []
+        }
+    
+    try:
+        # Configure Gemini API
+        api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyCp0Jvb1FVFIUOo1NHRCyFFf_G09lzU5G0"
+        if not api_key:
+            return {
+                "success": False,
+                "message": "Gemini API key not found. Please set GEMINI_API_KEY environment variable.",
+                "alternatives": []
+            }
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # Create context-aware prompt
+        prompt = f"""
+You are a weather planning assistant for {location}. Generate 3-4 intelligent Plan B alternatives for outdoor activities when weather conditions are unfavorable.
+
+CONTEXT:
+- Original Activity: {activity}
+- Weather Risk: {weather_condition} ({risk_level} risk)
+- Location: {location}
+- Season: {season}
+- Date: December 31, 2026
+
+REQUIREMENTS:
+1. Provide 3-4 specific, actionable alternatives
+2. Consider the season and location context
+3. Make suggestions practical and enjoyable
+4. Include both indoor and outdoor options when possible
+5. Be creative but realistic
+6. Consider local attractions and activities in Uruguay
+
+FORMAT: Return a JSON response with this structure:
+{{
+    "alternatives": [
+        {{
+            "title": "Alternative activity name",
+            "description": "Brief description of the activity",
+            "type": "indoor/outdoor/mixed",
+            "reason": "Why this is a good alternative",
+            "tips": "Practical tips for this activity"
+        }}
+    ]
+}}
+
+Focus on making the day enjoyable despite the weather conditions. Be specific and helpful.
+"""
+        
+        # Generate response
+        response = model.generate_content(prompt)
+        
+        # Parse JSON response
+        try:
+            # Extract JSON from response text
+            response_text = response.text
+            # Find JSON in the response
+            start_idx = response_text.find('{')
+            end_idx = response_text.rfind('}') + 1
+            
+            if start_idx != -1 and end_idx != -1:
+                json_text = response_text[start_idx:end_idx]
+                plan_b_data = json.loads(json_text)
+                
+                return {
+                    "success": True,
+                    "message": f"Generated {len(plan_b_data.get('alternatives', []))} Plan B alternatives using Gemini AI",
+                    "alternatives": plan_b_data.get('alternatives', []),
+                    "ai_model": "Gemini Pro",
+                    "generated_at": datetime.now().isoformat()
+                }
+            else:
+                raise ValueError("No JSON found in response")
+                
+        except (json.JSONDecodeError, ValueError) as e:
+            # Fallback: create structured response from text
+            alternatives = []
+            lines = response.text.split('\n')
+            current_alt = {}
+            
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('{') and not line.startswith('}'):
+                    if 'title' in line.lower() or 'alternative' in line.lower():
+                        if current_alt:
+                            alternatives.append(current_alt)
+                        current_alt = {"title": line, "description": "", "type": "mixed", "reason": "", "tips": ""}
+                    elif current_alt and not current_alt.get("description"):
+                        current_alt["description"] = line
+                    elif current_alt and not current_alt.get("reason"):
+                        current_alt["reason"] = line
+            
+            if current_alt:
+                alternatives.append(current_alt)
+            
+            return {
+                "success": True,
+                "message": f"Generated {len(alternatives)} Plan B alternatives using Gemini AI (fallback parsing)",
+                "alternatives": alternatives,
+                "ai_model": "Gemini Pro",
+                "generated_at": datetime.now().isoformat()
+            }
+    
+    except Exception as e:
+        print(f"Error generating Plan B with Gemini: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Error generating Plan B: {str(e)}",
+            "alternatives": []
+        }
+
+
+def generate_fallback_plan_b(
+    activity: str,
+    weather_condition: str,
+    risk_level: str,
+    location: str = "Montevideo, Uruguay",
+    season: str = "Summer"
+) -> Dict[str, Any]:
+    """
+    Generate fallback Plan B suggestions when Gemini is not available
+    """
+    fallback_alternatives = {
+        "beach": {
+            "cold": [
+                {
+                    "title": "Indoor Pool Complex",
+                    "description": "Visit a heated indoor pool or water park",
+                    "type": "indoor",
+                    "reason": "Warm water activities without cold weather exposure",
+                    "tips": "Bring swimwear and check opening hours"
+                },
+                {
+                    "title": "Museo del Mar",
+                    "description": "Explore marine life and ocean exhibits",
+                    "type": "indoor",
+                    "reason": "Ocean-themed experience in a warm environment",
+                    "tips": "Great for families and educational"
+                },
+                {
+                    "title": "Thermal Baths",
+                    "description": "Relax in natural hot springs",
+                    "type": "mixed",
+                    "reason": "Warm water therapy in natural setting",
+                    "tips": "Bring towels and check temperature requirements"
+                }
+            ],
+            "rainy": [
+                {
+                    "title": "Shopping Mall",
+                    "description": "Visit Punta Carretas or Montevideo Shopping",
+                    "type": "indoor",
+                    "reason": "Stay dry while enjoying shopping and dining",
+                    "tips": "Check for special events or sales"
+                },
+                {
+                    "title": "Cinema Complex",
+                    "description": "Watch latest movies in comfortable theaters",
+                    "type": "indoor",
+                    "reason": "Perfect rainy day entertainment",
+                    "tips": "Book tickets in advance for popular shows"
+                }
+            ]
+        },
+        "picnic": {
+            "cold": [
+                {
+                    "title": "Indoor Food Market",
+                    "description": "Visit Mercado del Puerto for local cuisine",
+                    "type": "indoor",
+                    "reason": "Food experience in warm environment",
+                    "tips": "Try traditional Uruguayan barbecue"
+                },
+                {
+                    "title": "Cooking Class",
+                    "description": "Learn to cook local dishes",
+                    "type": "indoor",
+                    "reason": "Interactive food experience",
+                    "tips": "Book in advance and bring appetite"
+                }
+            ],
+            "rainy": [
+                {
+                    "title": "Restaurant Tour",
+                    "description": "Visit multiple restaurants for different courses",
+                    "type": "indoor",
+                    "reason": "Food adventure without weather concerns",
+                    "tips": "Plan route and make reservations"
+                }
+            ]
+        },
+        "running": {
+            "cold": [
+                {
+                    "title": "Indoor Gym",
+                    "description": "Use treadmill or indoor track",
+                    "type": "indoor",
+                    "reason": "Maintain fitness routine in warm environment",
+                    "tips": "Bring gym clothes and water bottle"
+                },
+                {
+                    "title": "Shopping Mall Walking",
+                    "description": "Power walk through large shopping centers",
+                    "type": "indoor",
+                    "reason": "Exercise while staying warm",
+                    "tips": "Wear comfortable shoes and track steps"
+                }
+            ],
+            "rainy": [
+                {
+                    "title": "Indoor Sports Complex",
+                    "description": "Use indoor courts or tracks",
+                    "type": "indoor",
+                    "reason": "Stay active without getting wet",
+                    "tips": "Check availability and book time slots"
+                }
+            ]
+        }
+    }
+    
+    # Get alternatives for the specific activity and condition
+    alternatives = fallback_alternatives.get(activity, {}).get(weather_condition, [])
+    
+    # If no specific alternatives, provide general ones
+    if not alternatives:
+        alternatives = [
+            {
+                "title": "Museo Nacional de Artes Visuales",
+                "description": "Explore Uruguayan art and culture",
+                "type": "indoor",
+                "reason": "Cultural experience regardless of weather",
+                "tips": "Check current exhibitions and opening hours"
+            },
+            {
+                "title": "Teatro Solís",
+                "description": "Attend a performance or take a guided tour",
+                "type": "indoor",
+                "reason": "Cultural entertainment in beautiful venue",
+                "tips": "Book tickets in advance for performances"
+            }
+        ]
+    
+    return {
+        "success": True,
+        "message": f"Generated {len(alternatives)} Plan B alternatives (fallback mode)",
+        "alternatives": alternatives,
+        "ai_model": "Fallback System",
+        "generated_at": datetime.now().isoformat()
     }
 
 

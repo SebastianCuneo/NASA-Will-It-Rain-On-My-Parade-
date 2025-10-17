@@ -13,6 +13,8 @@ The application provides historical weather risk analysis using a 90th percentil
 - **90th Percentile Methodology**: NASA-grade statistical analysis for extreme weather risk assessment
 - **Probability-Based Risk System**: 0-100% risk assessment with four levels (MINIMAL, LOW, MODERATE, HIGH)
 - **Activity Compatibility Analysis**: Smart weather-activity matching with automatic Plan B suggestions
+- **AI-Powered Plan B Generation**: Intelligent alternatives using Google Gemini AI for contextual suggestions
+- **Seasonal & Activity-Aware Logic**: Contextual risk assessment based on season and activity type
 - **Educational Visualizations**: Climate change impact demonstrations with historical trends
 - **Mobile-Responsive Design**: Dynamic day/night theming with smooth animations
 - **Real-time API Integration**: FastAPI backend with comprehensive weather calculations
@@ -64,6 +66,26 @@ cd NASA-Will-It-Rain-On-My-Parade-
 ```bash
 pip install -r requirements.txt
 ```
+
+#### Step 2.5: Configure Gemini AI (Optional)
+For AI-powered Plan B generation, you can optionally configure Gemini AI:
+
+1. **Get a Gemini API Key**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey) to get your free API key
+2. **Set Environment Variable**: 
+   ```bash
+   # Windows
+   set GEMINI_API_KEY=your_api_key_here
+   
+   # Linux/Mac
+   export GEMINI_API_KEY=your_api_key_here
+   ```
+3. **Copy Configuration Template**:
+   ```bash
+   copy config_example.env .env
+   # Edit .env and add your API key
+   ```
+
+**Note**: The system works perfectly without Gemini AI using intelligent fallback alternatives.
 
 #### Step 3: Install Frontend Dependencies
 ```bash
@@ -307,6 +329,8 @@ The project functions via a modular FastAPI backend handling all scientific proc
 - **Data Transparency**: Provides complete scientific methodology, including 90th percentile thresholds and calculation details for full auditability
 - **Climate Literacy**: Builds environmental awareness through visual demonstrations of how weather risks have evolved over decades
 - **Activity Intelligence**: Offers tailored risk assessments for specific outdoor activities with automatic Plan B suggestions
+- **AI-Powered Alternatives**: Intelligent Plan B generation using Google Gemini AI for contextual, location-aware suggestions
+- **Seasonal Awareness**: Contextual risk assessment that considers Southern Hemisphere seasons and activity-specific thresholds
 - **Scientific Accuracy**: Uses percentile-based statistical analysis with real historical data processing for research-quality insights
 - **User Experience**: Features responsive design with dynamic day/night theming and smooth animations
 - **Educational Value**: Makes complex meteorological data accessible through intuitive visualizations and clear explanations
