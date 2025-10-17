@@ -18,7 +18,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk
+    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b
 except ImportError as e:
     print(f"Error importing logic module: {e}")
     # Fallback functions if logic module is not found
@@ -92,6 +92,7 @@ class RiskRequest(BaseModel):
     longitude: float
     event_date: str  # Formato: "DD/MM/YYYY" o "YYYY-MM-DD"
     adverse_condition: str  # Ej: 'Very Hot', 'Very Rainy', 'Very Cold', etc.
+    activity: str = "general"  # Tipo de actividad: 'beach', 'picnic', 'running', 'general'
     
     model_config = {
         "json_schema_extra": {
@@ -99,7 +100,8 @@ class RiskRequest(BaseModel):
                 "latitude": -34.90,
                 "longitude": -56.16,
                 "event_date": "16/12/2026",
-                "adverse_condition": "Very Cold"
+                "adverse_condition": "Very Cold",
+                "activity": "beach"
             }
         }
     }
@@ -182,9 +184,66 @@ def get_risk_analysis(request: RiskRequest):
         try:
             temperature_risk = calculate_adverse_probability(historical_data)
             precipitation_risk = calculate_precipitation_risk(historical_data)
-            cold_risk = calculate_cold_risk(historical_data)
+            cold_risk = calculate_cold_risk(historical_data, request.activity)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error calculating risk: {str(e)}")
+        
+        # Paso D: Generar Plan B con IA si hay riesgo alto
+        plan_b = None
+        try:
+            # Determine which risk is highest and generate Plan B accordingly
+            risks = {
+                'temperature': temperature_risk,
+                'precipitation': precipitation_risk,
+                'cold': cold_risk
+            }
+            
+            # Find the highest risk
+            highest_risk = max(risks.items(), key=lambda x: x[1]['probability'])
+            risk_type, risk_data = highest_risk
+            
+            # Only generate Plan B if risk is MODERATE or HIGH
+            if risk_data['risk_level'] in ['MODERATE', 'HIGH']:
+                # Map risk types to weather conditions
+                weather_condition_map = {
+                    'temperature': 'hot',
+                    'precipitation': 'rainy', 
+                    'cold': 'cold'
+                }
+                
+                weather_condition = weather_condition_map.get(risk_type, 'adverse')
+                
+                # Get season from cold_risk data
+                season = cold_risk.get('season', 'Unknown')
+                
+                # Try Gemini first, fallback to static alternatives
+                plan_b = generate_plan_b_with_gemini(
+                    activity=request.activity,
+                    weather_condition=weather_condition,
+                    risk_level=risk_data['risk_level'],
+                    location="Montevideo, Uruguay",
+                    season=season
+                )
+                
+                # If Gemini fails, use fallback
+                if not plan_b.get('success', False):
+                    plan_b = generate_fallback_plan_b(
+                        activity=request.activity,
+                        weather_condition=weather_condition,
+                        risk_level=risk_data['risk_level'],
+                        location="Montevideo, Uruguay",
+                        season=season
+                    )
+                
+                print(f"Generated Plan B with {len(plan_b.get('alternatives', []))} alternatives")
+                
+        except Exception as e:
+            print(f"Error generating Plan B: {str(e)}")
+            plan_b = {
+                "success": False,
+                "message": f"Error generating Plan B: {str(e)}",
+                "alternatives": []
+            }
         
         # Agregar información adicional a la respuesta
         response = {
@@ -197,9 +256,11 @@ def get_risk_analysis(request: RiskRequest):
                 "date": request.event_date,
                 "month": month_filter,
                 "adverse_condition": request.adverse_condition,
+                "activity": request.activity,
                 "temperature_risk": temperature_risk,
                 "precipitation_risk": precipitation_risk,
                 "cold_risk": cold_risk,
+                "plan_b": plan_b,
                 "data_source": "NASA POWER API",
                 "records_analyzed": len(historical_data)
             }
@@ -211,6 +272,16 @@ def get_risk_analysis(request: RiskRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "NASA Weather Risk Navigator API",
+        "timestamp": datetime.now().isoformat()
+    }
 
 # Endpoint adicional para testing
 @app.get("/api/test")

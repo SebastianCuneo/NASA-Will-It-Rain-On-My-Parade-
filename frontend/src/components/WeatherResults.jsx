@@ -30,7 +30,7 @@ const WeatherResults = ({ data, isNightMode }) => {
   };
 
   // Calculate results - Use API data if available, otherwise fallback to mock data
-  const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk } = data;
+  const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk, plan_b } = data;
   
   let totalPercentage = 0, totalPastPercentage = 0, emojis = '';
   let summaryParts = [], adviceParts = [];
@@ -198,16 +198,22 @@ const WeatherResults = ({ data, isNightMode }) => {
   // Generate Plan B if activity is not compatible
   useEffect(() => {
     if (activityCompatibility && !activityCompatibility.isGood) {
-      setPlanBLoading(true);
-      // Simulate API call delay
-      setTimeout(() => {
-        // Dynamic Plan B based on weather conditions
-        const planBOptions = generateDynamicPlanB(weatherConditions, activity);
-        setPlanBData(planBOptions);
+      if (plan_b && plan_b.success && plan_b.alternatives) {
+        // Use real Plan B data from backend
+        setPlanBData(plan_b.alternatives);
         setPlanBLoading(false);
-      }, 1500);
+      } else {
+        setPlanBLoading(true);
+        // Simulate API call delay for fallback
+        setTimeout(() => {
+          // Dynamic Plan B based on weather conditions
+          const planBOptions = generateDynamicPlanB(weatherConditions, activity);
+          setPlanBData(planBOptions);
+          setPlanBLoading(false);
+        }, 1500);
+      }
     }
-  }, [activityCompatibility, weatherConditions, activity]);
+  }, [activityCompatibility, weatherConditions, activity, plan_b]);
 
   // Dynamic Plan B generation based on weather conditions
   const generateDynamicPlanB = (conditions, originalActivity) => {
@@ -287,13 +293,39 @@ const WeatherResults = ({ data, isNightMode }) => {
                               : 'bg-white border border-gray-200'
                           }`}>
                             <p className={`font-bold ${isNightMode ? 'text-yellow-300' : 'text-blue-600'}`}>
-                              {alt.activityName}
+                              {alt.title || alt.activityName}
                             </p>
                             <p className={`text-xs mt-1 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                              {alt.recommendation}
+                              {alt.description || alt.recommendation}
                             </p>
+                            {alt.reason && (
+                              <p className={`text-xs mt-1 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
+                                <strong>Why:</strong> {alt.reason}
+                              </p>
+                            )}
+                            {alt.tips && (
+                              <p className={`text-xs mt-1 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
+                                <strong>Tips:</strong> {alt.tips}
+                              </p>
+                            )}
+                            {alt.type && (
+                              <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs ${
+                                alt.type === 'indoor' 
+                                  ? (isNightMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700')
+                                  : alt.type === 'outdoor'
+                                  ? (isNightMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700')
+                                  : (isNightMode ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700')
+                              }`}>
+                                {alt.type}
+                              </span>
+                            )}
                           </div>
                         ))}
+                        {plan_b && plan_b.ai_model && (
+                          <p className={`text-xs mt-3 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
+                            Powered by {plan_b.ai_model}
+                          </p>
+                        )}
                       </>
                     ) : null}
                   </div>

@@ -107,6 +107,7 @@ function App() {
       const temperatureRisk = apiData.data.temperature_risk;
       const precipitationRisk = apiData.data.precipitation_risk;
       const coldRisk = apiData.data.cold_risk;
+      const planB = apiData.data.plan_b;
       
       // Combine API data with form data
       const combinedData = {
@@ -129,7 +130,8 @@ function App() {
           risk_level: coldRisk.risk_level,
           status_message: coldRisk.status_message,
           risk_threshold: coldRisk.risk_threshold
-        }
+        },
+        plan_b: planB
       };
 
       setResults(combinedData);
