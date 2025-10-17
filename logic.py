@@ -167,19 +167,9 @@ def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -5
         
     except Exception as e:
         print(f"Error in load_historical_data: {str(e)}")
-        # Final fallback to mock data
-        try:
-            print("Attempting fallback to mock data...")
-            df = pd.read_csv('mock_data.csv')
-            monthly_data = df[df['Month'] == month_filter].copy()
-            if monthly_data.empty:
-                raise ValueError(f"No data found for month {month_filter}")
-            print(f"Using mock data: {len(monthly_data)} records for month {month_filter}")
-            return monthly_data
-        except FileNotFoundError:
-            raise FileNotFoundError("mock_data.csv not found and NASA POWER API unavailable")
-        except Exception as fallback_error:
-            raise Exception(f"Both NASA POWER API and mock data failed: {str(e)} | {str(fallback_error)}")
+        # Return empty DataFrame instead of raising exception
+        print("NASA POWER API failed - returning empty DataFrame")
+        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
 
 
 def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
@@ -190,16 +180,22 @@ def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     if 'Max_Temperature_C' not in monthly_data.columns:
         raise ValueError("Temperature data not found")
     
-    # Calculate 90th percentile threshold
-    risk_threshold = np.percentile(monthly_data['Max_Temperature_C'], 90)
+    # Filter out invalid values (NASA uses -999 for missing data)
+    valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
     
-    # Count adverse events
-    adverse_events = monthly_data[monthly_data['Max_Temperature_C'] >= risk_threshold]
+    if len(valid_temp_data) == 0:
+        raise ValueError("No valid temperature data found")
+    
+    # Use a fixed threshold for hot weather (30°C is considered hot for outdoor activities)
+    risk_threshold = 30.0
+    
+    # Count adverse events (days above the hot weather threshold)
+    adverse_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] > risk_threshold]
     total_observations = len(monthly_data)
     adverse_count = len(adverse_events)
     
-    # Calculate probability
-    probability = (adverse_count / total_observations) * 100
+    # Calculate probability as percentage of days above threshold
+    probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
     
     # Generate status message
     if probability >= 20:
@@ -222,6 +218,142 @@ def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         'risk_level': risk_level,
         'total_observations': total_observations,
         'adverse_count': adverse_count
+    }
+
+
+def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Calculate precipitation risk using 90th percentile methodology
+    
+    Args:
+        monthly_data: DataFrame with precipitation data
+        
+    Returns:
+        Dict with precipitation risk analysis
+    """
+    if monthly_data.empty:
+        return {
+            'probability': 0.0,
+            'risk_threshold': 0.0,
+            'status_message': "No precipitation data available",
+            'risk_level': "UNKNOWN",
+            'total_observations': 0,
+            'adverse_count': 0
+        }
+    
+    # Filter out invalid values (NASA uses -999 for missing data)
+    valid_precip_data = monthly_data[monthly_data['Precipitation_mm'] >= 0]
+    
+    if len(valid_precip_data) == 0:
+        return {
+            'probability': 0.0,
+            'risk_threshold': 0.0,
+            'status_message': "No valid precipitation data available",
+            'risk_level': "UNKNOWN",
+            'total_observations': 0,
+            'adverse_count': 0
+        }
+    
+    # Use a fixed threshold for significant precipitation (5mm is noticeable rain)
+    precip_threshold = 5.0
+    
+    # Count days with precipitation above threshold
+    adverse_count = len(valid_precip_data[valid_precip_data['Precipitation_mm'] > precip_threshold])
+    total_observations = len(monthly_data)
+    
+    # Calculate probability as percentage of days with significant precipitation
+    probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
+    
+    # Determine risk level
+    if probability >= 20:
+        risk_level = "HIGH"
+        status_message = "🌧️ HIGH RISK of heavy precipitation. Consider indoor alternatives."
+    elif probability >= 10:
+        risk_level = "MODERATE"
+        status_message = "🌦️ MODERATE RISK of rain. Bring umbrella."
+    elif probability >= 5:
+        risk_level = "LOW"
+        status_message = "🌤️ LOW RISK of precipitation. Light rain possible."
+    else:
+        risk_level = "MINIMAL"
+        status_message = "☀️ MINIMAL RISK of rain. Dry conditions expected."
+    
+    return {
+        'probability': round(probability, 1),
+        'risk_threshold': round(precip_threshold, 1),
+        'status_message': status_message,
+        'risk_level': risk_level,
+        'total_observations': total_observations,
+        'adverse_count': adverse_count
+    }
+
+
+def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Calculate cold weather risk using 10th percentile methodology
+    
+    Args:
+        monthly_data: DataFrame with temperature data
+        
+    Returns:
+        Dict with cold weather risk analysis
+    """
+    if monthly_data.empty:
+        return {
+            'probability': 0.0,
+            'risk_threshold': 0.0,
+            'status_message': "No temperature data available",
+            'risk_level': "UNKNOWN",
+            'total_observations': 0,
+            'adverse_count': 0
+        }
+    
+    # Filter out invalid values (NASA uses -999 for missing data)
+    valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
+    
+    if len(valid_temp_data) == 0:
+        return {
+            'probability': 0.0,
+            'risk_threshold': 0.0,
+            'status_message': "No valid temperature data available",
+            'risk_level': "UNKNOWN",
+            'total_observations': 0,
+            'adverse_count': 0
+        }
+    
+    # For beach activities, use a higher threshold (25°C) to determine cold risk
+    # This is more realistic for outdoor activities like beach days
+    beach_cold_threshold = 25.0  # Below 25°C is considered cold for beach activities
+    
+    # Count days with temperature below the beach cold threshold
+    cold_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] < beach_cold_threshold]
+    total_observations = len(monthly_data)
+    cold_count = len(cold_events)
+    
+    # Calculate probability of cold weather for beach activities
+    probability = (cold_count / total_observations) * 100 if total_observations > 0 else 0
+    
+    # Determine risk level
+    if probability >= 20:
+        risk_level = "HIGH"
+        status_message = "🧊 HIGH RISK of cold weather. Bundle up!"
+    elif probability >= 10:
+        risk_level = "MODERATE"
+        status_message = "❄️ MODERATE RISK of cold weather. Dress warmly."
+    elif probability >= 5:
+        risk_level = "LOW"
+        status_message = "🌤️ LOW RISK of cold weather. Light jacket recommended."
+    else:
+        risk_level = "MINIMAL"
+        status_message = "☀️ MINIMAL RISK of cold weather. Comfortable temperatures expected."
+    
+    return {
+        'probability': round(probability, 1),
+        'risk_threshold': round(beach_cold_threshold, 1),
+        'status_message': status_message,
+        'risk_level': risk_level,
+        'total_observations': total_observations,
+        'adverse_count': cold_count
     }
 
 

@@ -73,19 +73,25 @@ function App() {
     setResults(null);
 
     try {
+      // Create payload for API call
+      const apiPayload = {
+        latitude: data.latitude,  // Use coordinates from form
+        longitude: data.longitude,
+        event_date: data.event_date,  // Send date as string
+        adverse_condition: data.weatherConditions[0] || 'Very Hot'  // Send first selected condition
+      };
+      
+      // Debugging: Log API payload
+      console.log('App.js API Payload:', apiPayload);
+      console.log('API URL: http://localhost:8000/api/risk');
+      
       // Call the FastAPI backend
       const response = await fetch('http://localhost:8000/api/risk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          lat: data.latitude,  // Use coordinates from form
-          lon: data.longitude,
-          month: new Date(data.event_date).getMonth() + 1,  // Convert date to month
-          weather_conditions: data.weatherConditions,
-          activity: data.activity
-        })
+        body: JSON.stringify(apiPayload)
       });
 
       if (!response.ok) {
@@ -94,12 +100,36 @@ function App() {
 
       const apiData = await response.json();
       
+      // Debugging: Log API response
+      console.log('App.js API Response:', apiData);
+      
+      // Extract risk analysis from the new API response structure
+      const temperatureRisk = apiData.data.temperature_risk;
+      const precipitationRisk = apiData.data.precipitation_risk;
+      const coldRisk = apiData.data.cold_risk;
+      
       // Combine API data with form data
       const combinedData = {
         ...data,
         apiResults: apiData,
-        temperature_risk: apiData.temperature_risk,
-        precipitation_risk: apiData.precipitation_risk
+        temperature_risk: {
+          probability: temperatureRisk.probability,
+          risk_level: temperatureRisk.risk_level,
+          status_message: temperatureRisk.status_message,
+          risk_threshold: temperatureRisk.risk_threshold
+        },
+        precipitation_risk: {
+          probability: precipitationRisk.probability,
+          risk_level: precipitationRisk.risk_level,
+          status_message: precipitationRisk.status_message,
+          risk_threshold: precipitationRisk.risk_threshold
+        },
+        cold_risk: {
+          probability: coldRisk.probability,
+          risk_level: coldRisk.risk_level,
+          status_message: coldRisk.status_message,
+          risk_threshold: coldRisk.risk_threshold
+        }
       };
 
       setResults(combinedData);

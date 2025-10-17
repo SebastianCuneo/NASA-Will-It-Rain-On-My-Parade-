@@ -30,16 +30,25 @@ const WeatherResults = ({ data, isNightMode }) => {
   };
 
   // Calculate results - Use API data if available, otherwise fallback to mock data
-  const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk } = data;
+  const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk } = data;
   
   let totalPercentage = 0, totalPastPercentage = 0, emojis = '';
   let summaryParts = [], adviceParts = [];
   
+  // Debug: Log the data we're receiving
+  console.log('WeatherResults - apiResults:', apiResults);
+  console.log('WeatherResults - temperature_risk:', temperature_risk);
+  console.log('WeatherResults - precipitation_risk:', precipitation_risk);
+  console.log('WeatherResults - cold_risk:', cold_risk);
+  console.log('WeatherResults - weatherConditions:', weatherConditions);
+  
   // Use real API data if available
-  if (apiResults && temperature_risk && precipitation_risk) {
+  if (apiResults && temperature_risk && precipitation_risk && cold_risk) {
+    console.log('WeatherResults - Using real API data');
     // Calculate based on actual API results
     const tempRisk = temperature_risk.probability;
     const precipRisk = precipitation_risk.probability;
+    const coldRiskValue = cold_risk.probability;
     
     // Map weather conditions to actual risk data
     weatherConditions.forEach(c => {
@@ -51,6 +60,11 @@ const WeatherResults = ({ data, isNightMode }) => {
         totalPercentage += precipRisk;
         summaryParts.push('rainy weather');
         adviceParts.push(precipitation_risk.status_message);
+      } else if (c === 'cold') {
+        // Use real cold risk data from backend
+        totalPercentage += coldRiskValue;
+        summaryParts.push('cold weather');
+        adviceParts.push(cold_risk.status_message);
       } else {
         // Fallback to mock data for other conditions
         const conditionData = mockData[c];
@@ -65,6 +79,7 @@ const WeatherResults = ({ data, isNightMode }) => {
     // Use historical data from API if available
     totalPastPercentage = totalPercentage * 0.8; // Rough estimate for past data
   } else {
+    console.log('WeatherResults - Using mock data fallback');
     // Fallback to mock data
     weatherConditions.forEach(c => {
       const conditionData = mockData[c];
@@ -121,16 +136,15 @@ const WeatherResults = ({ data, isNightMode }) => {
     if (badCondition) {
         // Get actual probability for the condition
         let actualProbability = 0;
-        if (apiResults && temperature_risk && precipitation_risk) {
+        if (apiResults && temperature_risk && precipitation_risk && cold_risk) {
           // Use real API data
           if (badCondition === 'hot') {
             actualProbability = temperature_risk.probability;
           } else if (badCondition === 'wet') {
             actualProbability = precipitation_risk.probability;
           } else if (badCondition === 'cold') {
-            // For cold weather, calculate inverse of hot weather probability
-            // If hot weather probability is low, cold weather probability is high
-            actualProbability = Math.max(0, 100 - temperature_risk.probability);
+            // Use real cold risk data from backend
+            actualProbability = cold_risk.probability;
           } else {
             // Use mock data for other conditions
             actualProbability = mockData[badCondition].percentage;
@@ -155,9 +169,9 @@ const WeatherResults = ({ data, isNightMode }) => {
           name: currentActivity.name, 
           icon: actualProbability < 15 ? '👍' : '👎', 
           message: actualProbability < 15 
-            ? `Great day for your activity! Low probability of ${mockData[badCondition].text} weather.`
-            : `Doesn't seem like the best day. The ${probabilityText} of ${mockData[badCondition].text} weather could complicate the activity.`, 
-          reason: mockData[badCondition].text 
+            ? `Great day for your activity! Low probability of ${badCondition === 'cold' ? 'cold' : mockData[badCondition].text} weather.`
+            : `Doesn't seem like the best day. The ${probabilityText} of ${badCondition === 'cold' ? 'cold' : mockData[badCondition].text} weather could complicate the activity.`, 
+          reason: badCondition === 'cold' ? 'cold' : mockData[badCondition].text
         };
     } else {
       return { 
