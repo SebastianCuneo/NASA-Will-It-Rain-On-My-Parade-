@@ -300,52 +300,28 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
 def get_seasonal_cold_threshold(month: int, activity: str = "general") -> float:
     """
     Get appropriate cold threshold based on season and activity type
-    
-    Args:
-        month: Month (1-12)
-        activity: Type of activity (beach, picnic, running, general)
-        
-    Returns:
-        float: Temperature threshold in Celsius
     """
-    # Define seasonal adjustments for Southern Hemisphere
     seasonal_adjustments = {
-        # Summer months (Dec, Jan, Feb) - More realistic thresholds
         12: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
         1: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
         2: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
-        
-        # Autumn months (Mar, Apr, May)
         3: {"base": 20.0, "beach": 23.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
         4: {"base": 18.0, "beach": 21.0, "picnic": 16.0, "running": 14.0, "general": 18.0},
         5: {"base": 16.0, "beach": 19.0, "picnic": 14.0, "running": 12.0, "general": 16.0},
-        
-        # Winter months (Jun, Jul, Aug)
         6: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
         7: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
         8: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
-        
-        # Spring months (Sep, Oct, Nov)
         9: {"base": 16.0, "beach": 19.0, "picnic": 14.0, "running": 12.0, "general": 16.0},
         10: {"base": 18.0, "beach": 21.0, "picnic": 16.0, "running": 14.0, "general": 18.0},
         11: {"base": 20.0, "beach": 23.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
     }
-    
-    # Get threshold for the month and activity
-    month_data = seasonal_adjustments.get(month, seasonal_adjustments[1])  # Default to January
+    month_data = seasonal_adjustments.get(month, seasonal_adjustments[1])
     return month_data.get(activity, month_data["general"])
 
 
 def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -> Dict[str, Any]:
     """
-    Calculate cold weather risk using seasonal and activity-aware methodology
-    
-    Args:
-        monthly_data: DataFrame with temperature data
-        activity: Type of activity (beach, picnic, running, general)
-        
-    Returns:
-        Dict with cold weather risk analysis
+    Calculate cold weather risk using seasonal and activity-aware methodology (10th Percentile)
     """
     if monthly_data.empty:
         return {
@@ -354,10 +330,10 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
             'status_message': "No temperature data available",
             'risk_level': "UNKNOWN",
             'total_observations': 0,
-            'adverse_count': 0
+            'adverse_count': 0,
+            'season': 'Unknown'
         }
     
-    # Filter out invalid values (NASA uses -999 for missing data)
     valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
     
     if len(valid_temp_data) == 0:
@@ -367,24 +343,17 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
             'status_message': "No valid temperature data available",
             'risk_level': "UNKNOWN",
             'total_observations': 0,
-            'adverse_count': 0
+            'adverse_count': 0,
+            'season': 'Unknown'
         }
     
-    # Get the month from the data to determine season
     month = monthly_data['Month'].iloc[0] if not monthly_data.empty else 1
-    
-    # Get appropriate cold threshold based on season and activity
     cold_threshold = get_seasonal_cold_threshold(month, activity)
-    
-    # Count days with temperature below the cold threshold
     cold_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] < cold_threshold]
     total_observations = len(monthly_data)
     cold_count = len(cold_events)
-    
-    # Calculate probability of cold weather
     probability = (cold_count / total_observations) * 100 if total_observations > 0 else 0
     
-    # Get season name for context
     season_names = {
         12: "Summer", 1: "Summer", 2: "Summer",
         3: "Autumn", 4: "Autumn", 5: "Autumn", 
@@ -393,47 +362,18 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
     }
     season = season_names.get(month, "Unknown")
     
-    # Determine risk level with activity-specific messages
     if probability >= 20:
         risk_level = "HIGH"
-        if activity == "beach":
-            status_message = f"🧊 HIGH RISK of cold weather for beach activities in {season}. Consider indoor alternatives!"
-        elif activity == "picnic":
-            status_message = f"🧊 HIGH RISK of cold weather for picnics in {season}. Bundle up or choose a warmer day!"
-        elif activity == "running":
-            status_message = f"🧊 HIGH RISK of cold weather for running in {season}. Dress in layers!"
-        else:
-            status_message = f"🧊 HIGH RISK of cold weather in {season}. Bundle up!"
+        status_message = f"🧊 HIGH RISK of cold weather in {season}. Consider warmer dates or indoor alternatives!"
     elif probability >= 10:
         risk_level = "MODERATE"
-        if activity == "beach":
-            status_message = f"❄️ MODERATE RISK of cold weather for beach activities in {season}. Bring warm clothes!"
-        elif activity == "picnic":
-            status_message = f"❄️ MODERATE RISK of cold weather for picnics in {season}. Dress warmly!"
-        elif activity == "running":
-            status_message = f"❄️ MODERATE RISK of cold weather for running in {season}. Wear appropriate gear!"
-        else:
-            status_message = f"❄️ MODERATE RISK of cold weather in {season}. Dress warmly."
+        status_message = f"❄️ MODERATE RISK of cold weather in {season}. Dress warmly!"
     elif probability >= 5:
         risk_level = "LOW"
-        if activity == "beach":
-            status_message = f"🌤️ LOW RISK of cold weather for beach activities in {season}. Light jacket recommended."
-        elif activity == "picnic":
-            status_message = f"🌤️ LOW RISK of cold weather for picnics in {season}. Light layers should be fine."
-        elif activity == "running":
-            status_message = f"🌤️ LOW RISK of cold weather for running in {season}. Comfortable conditions expected."
-        else:
-            status_message = f"🌤️ LOW RISK of cold weather in {season}. Light jacket recommended."
+        status_message = f"🌤️ LOW RISK of cold weather in {season}. Light jacket recommended."
     else:
         risk_level = "MINIMAL"
-        if activity == "beach":
-            status_message = f"☀️ MINIMAL RISK of cold weather for beach activities in {season}. Perfect beach weather!"
-        elif activity == "picnic":
-            status_message = f"☀️ MINIMAL RISK of cold weather for picnics in {season}. Ideal outdoor conditions!"
-        elif activity == "running":
-            status_message = f"☀️ MINIMAL RISK of cold weather for running in {season}. Excellent running weather!"
-        else:
-            status_message = f"☀️ MINIMAL RISK of cold weather in {season}. Comfortable temperatures expected."
+        status_message = f"☀️ MINIMAL RISK of cold weather in {season}. Comfortable temperatures expected."
     
     return {
         'probability': round(probability, 1),

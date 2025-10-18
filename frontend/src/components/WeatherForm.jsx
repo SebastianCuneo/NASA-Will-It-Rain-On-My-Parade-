@@ -15,10 +15,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const weatherOptions = [
     { id: 'wet', emoji: '🌧️', label: 'Very Rainy' },
     { id: 'hot', emoji: '🔥', label: 'Very Hot' },
-    { id: 'cold', emoji: '❄️', label: 'Very Cold' },
-    { id: 'windy', emoji: '💨', label: 'Very Windy' },
-    { id: 'uncomfortable', emoji: '🥵', label: 'Uncomfortable' },
-    { id: 'uv', emoji: '☀️', label: 'UV Radiation' }
+    { id: 'cold', emoji: '❄️', label: 'Very Cold' }
   ];
 
   const activityOptions = [
