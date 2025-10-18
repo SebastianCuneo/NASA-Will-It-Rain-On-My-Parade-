@@ -70,6 +70,12 @@ pip install -r requirements.txt
 #### Step 2.5: Configure Gemini AI (Optional)
 For AI-powered Plan B generation, you can optionally configure Gemini AI:
 
+**Option A: Automated Setup (Recommended)**
+```bash
+python setup_gemini.py
+```
+
+**Option B: Manual Setup**
 1. **Get a Gemini API Key**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey) to get your free API key
 2. **Set Environment Variable**: 
    ```bash
@@ -84,6 +90,11 @@ For AI-powered Plan B generation, you can optionally configure Gemini AI:
    copy config_example.env .env
    # Edit .env and add your API key
    ```
+
+**Test Gemini AI Integration:**
+```bash
+python test_gemini_plan_b.py
+```
 
 **Note**: The system works perfectly without Gemini AI using intelligent fallback alternatives.
 
