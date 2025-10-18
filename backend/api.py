@@ -207,7 +207,7 @@ def get_risk_analysis(request: RiskRequest):
                 # Map risk types to weather conditions
                 weather_condition_map = {
                     'temperature': 'hot',
-                    'precipitation': 'rainy', 
+                    'precipitation': 'rainy',
                     'cold': 'cold'
                 }
                 
@@ -341,8 +341,6 @@ def regenerate_plan_b(request: RegeneratePlanBRequest):
             primary_condition = 'hot'
         elif 'cold' in weather_conditions:
             primary_condition = 'cold'
-        elif 'windy' in weather_conditions:
-            primary_condition = 'windy'
         
         # Determine risk level based on probabilities
         max_risk = max(temperature_risk, precipitation_risk, cold_risk)
