@@ -452,10 +452,13 @@ def generate_plan_b_with_gemini(
     weather_condition: str,
     risk_level: str,
     location: str = "Montevideo, Uruguay",
-    season: str = "Summer"
+    season: str = "Summer",
+    temperature_risk: float = None,
+    precipitation_risk: float = None,
+    cold_risk: float = None
 ) -> Dict[str, Any]:
     """
-    Generate intelligent Plan B suggestions using Gemini AI
+    Generate intelligent Plan B suggestions using Gemini AI with enhanced context
     
     Args:
         activity: Type of activity (beach, picnic, running, etc.)
@@ -463,6 +466,9 @@ def generate_plan_b_with_gemini(
         risk_level: Risk level (HIGH, MODERATE, LOW, MINIMAL)
         location: Location name for context
         season: Current season
+        temperature_risk: Temperature risk probability (0-100)
+        precipitation_risk: Precipitation risk probability (0-100)
+        cold_risk: Cold weather risk probability (0-100)
         
     Returns:
         Dict with Plan B suggestions
@@ -475,114 +481,208 @@ def generate_plan_b_with_gemini(
         }
     
     try:
-        # Configure Gemini API
+        # Configure Gemini API with better error handling
         api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyCp0Jvb1FVFIUOo1NHRCyFFf_G09lzU5G0"
-        if not api_key:
+        if not api_key or api_key == "your_gemini_api_key_here":
             return {
                 "success": False,
-                "message": "Gemini API key not found. Please set GEMINI_API_KEY environment variable.",
+                "message": "Gemini API key not configured. Please set GEMINI_API_KEY environment variable.",
                 "alternatives": []
             }
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
-        # Create context-aware prompt
-        prompt = f"""
-You are a weather planning assistant for {location}. Generate 3-4 intelligent Plan B alternatives for outdoor activities when weather conditions are unfavorable.
+        # Enhanced context-aware prompt with risk probabilities
+        risk_context = ""
+        if temperature_risk is not None:
+            risk_context += f"- Temperature Risk: {temperature_risk:.1f}%\n"
+        if precipitation_risk is not None:
+            risk_context += f"- Precipitation Risk: {precipitation_risk:.1f}%\n"
+        if cold_risk is not None:
+            risk_context += f"- Cold Weather Risk: {cold_risk:.1f}%\n"
+        
+        # Create enhanced prompt with better structure
+        prompt = f"""You are an expert weather planning assistant for {location}. Generate intelligent Plan B alternatives for outdoor activities when weather conditions are unfavorable.
 
 CONTEXT:
 - Original Activity: {activity}
-- Weather Risk: {weather_condition} ({risk_level} risk)
+- Primary Weather Risk: {weather_condition} ({risk_level} risk level)
 - Location: {location}
 - Season: {season}
-- Date: December 31, 2026
+- Current Date: {datetime.now().strftime('%B %d, %Y')}
+{risk_context}
 
 REQUIREMENTS:
-1. Provide 3-4 specific, actionable alternatives
-2. Consider the season and location context
-3. Make suggestions practical and enjoyable
-4. Include both indoor and outdoor options when possible
-5. Be creative but realistic
-6. Consider local attractions and activities in Uruguay
+1. Provide exactly 3-4 specific, actionable alternatives
+2. Consider the season, location, and weather context
+3. Make suggestions practical, enjoyable, and realistic
+4. Include both indoor and outdoor options when weather permits
+5. Be creative but maintain feasibility
+6. Consider local attractions and activities specific to Uruguay
+7. Provide specific locations or venues when possible
+8. Consider cost, accessibility, and time requirements
 
-FORMAT: Return a JSON response with this structure:
+RESPONSE FORMAT: Return ONLY a valid JSON response with this exact structure:
 {{
     "alternatives": [
         {{
-            "title": "Alternative activity name",
-            "description": "Brief description of the activity",
+            "title": "Specific activity name",
+            "description": "Brief but detailed description of the activity",
             "type": "indoor/outdoor/mixed",
-            "reason": "Why this is a good alternative",
-            "tips": "Practical tips for this activity"
+            "reason": "Why this is a good alternative for the weather conditions",
+            "tips": "Practical tips for this activity",
+            "location": "Specific location or venue (if applicable)",
+            "duration": "Estimated time needed",
+            "cost": "Free/Low/Medium/High"
         }}
     ]
 }}
 
-Focus on making the day enjoyable despite the weather conditions. Be specific and helpful.
-"""
+Focus on making the day enjoyable despite the weather conditions. Be specific, helpful, and consider the local context of Uruguay."""
         
-        # Generate response
-        response = model.generate_content(prompt)
-        
-        # Parse JSON response
+        # Generate response with timeout
         try:
-            # Extract JSON from response text
-            response_text = response.text
-            # Find JSON in the response
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=1024,
+                )
+            )
+        except Exception as api_error:
+            print(f"Gemini API call failed: {str(api_error)}")
+            return {
+                "success": False,
+                "message": f"Gemini API call failed: {str(api_error)}",
+                "alternatives": []
+            }
+        
+        # Enhanced JSON parsing with better error handling
+        try:
+            response_text = response.text.strip()
+            print(f"Gemini raw response: {response_text[:200]}...")  # Debug log
+            
+            # Clean the response text
+            response_text = response_text.replace('```json', '').replace('```', '').strip()
+            
+            # Find JSON boundaries more robustly
             start_idx = response_text.find('{')
             end_idx = response_text.rfind('}') + 1
             
-            if start_idx != -1 and end_idx != -1:
-                json_text = response_text[start_idx:end_idx]
-                plan_b_data = json.loads(json_text)
-                
-                return {
-                    "success": True,
-                    "message": f"Generated {len(plan_b_data.get('alternatives', []))} Plan B alternatives using Gemini AI",
-                    "alternatives": plan_b_data.get('alternatives', []),
-                    "ai_model": "Gemini Pro",
-                    "generated_at": datetime.now().isoformat()
-                }
-            else:
-                raise ValueError("No JSON found in response")
-                
-        except (json.JSONDecodeError, ValueError) as e:
-            # Fallback: create structured response from text
-            alternatives = []
-            lines = response.text.split('\n')
-            current_alt = {}
+            if start_idx == -1 or end_idx == 0:
+                raise ValueError("No JSON structure found in response")
             
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith('{') and not line.startswith('}'):
-                    if 'title' in line.lower() or 'alternative' in line.lower():
-                        if current_alt:
-                            alternatives.append(current_alt)
-                        current_alt = {"title": line, "description": "", "type": "mixed", "reason": "", "tips": ""}
-                    elif current_alt and not current_alt.get("description"):
-                        current_alt["description"] = line
-                    elif current_alt and not current_alt.get("reason"):
-                        current_alt["reason"] = line
+            json_text = response_text[start_idx:end_idx]
+            plan_b_data = json.loads(json_text)
             
-            if current_alt:
-                alternatives.append(current_alt)
+            # Validate the response structure
+            alternatives = plan_b_data.get('alternatives', [])
+            if not isinstance(alternatives, list) or len(alternatives) == 0:
+                raise ValueError("No alternatives found in response")
+            
+            # Ensure each alternative has required fields
+            validated_alternatives = []
+            for alt in alternatives:
+                if isinstance(alt, dict) and alt.get('title'):
+                    validated_alt = {
+                        'title': alt.get('title', 'Activity'),
+                        'description': alt.get('description', 'No description available'),
+                        'type': alt.get('type', 'mixed'),
+                        'reason': alt.get('reason', 'Good alternative for current conditions'),
+                        'tips': alt.get('tips', 'Enjoy your activity!'),
+                        'location': alt.get('location', 'Various locations available'),
+                        'duration': alt.get('duration', '1-3 hours'),
+                        'cost': alt.get('cost', 'Varies')
+                    }
+                    validated_alternatives.append(validated_alt)
+            
+            if len(validated_alternatives) == 0:
+                raise ValueError("No valid alternatives found after validation")
             
             return {
                 "success": True,
-                "message": f"Generated {len(alternatives)} Plan B alternatives using Gemini AI (fallback parsing)",
-                "alternatives": alternatives,
-                "ai_model": "Gemini Pro",
-                "generated_at": datetime.now().isoformat()
+                "message": f"Generated {len(validated_alternatives)} Plan B alternatives using Gemini AI",
+                "alternatives": validated_alternatives,
+                "ai_model": "Gemini 2.0 Flash",
+                "generated_at": datetime.now().isoformat(),
+                "context": {
+                    "activity": activity,
+                    "weather_condition": weather_condition,
+                    "risk_level": risk_level,
+                    "location": location,
+                    "season": season
+                }
             }
+                
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"JSON parsing failed: {str(e)}")
+            # Enhanced fallback parsing
+            alternatives = parse_fallback_response(response.text)
+            
+            if len(alternatives) > 0:
+                return {
+                    "success": True,
+                    "message": f"Generated {len(alternatives)} Plan B alternatives using Gemini AI (fallback parsing)",
+                    "alternatives": alternatives,
+                    "ai_model": "Gemini 2.0 Flash (Fallback)",
+                    "generated_at": datetime.now().isoformat(),
+                    "warning": "Response parsing used fallback method"
+                }
+            else:
+                raise ValueError("Failed to parse response and no alternatives found")
     
     except Exception as e:
         print(f"Error generating Plan B with Gemini: {str(e)}")
         return {
             "success": False,
             "message": f"Error generating Plan B: {str(e)}",
-            "alternatives": []
+            "alternatives": [],
+            "error_type": type(e).__name__
         }
+
+
+def parse_fallback_response(response_text: str) -> list:
+    """
+    Parse Gemini response when JSON parsing fails
+    """
+    alternatives = []
+    lines = response_text.split('\n')
+    current_alt = {}
+    
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('{') or line.startswith('}'):
+            continue
+            
+        # Look for activity titles (various patterns)
+        if any(keyword in line.lower() for keyword in ['visit', 'go to', 'try', 'enjoy', 'explore', 'discover']):
+            if current_alt and current_alt.get('title'):
+                alternatives.append(current_alt)
+            current_alt = {
+                "title": line,
+                "description": "",
+                "type": "mixed",
+                "reason": "",
+                "tips": "",
+                "location": "Various locations",
+                "duration": "1-3 hours",
+                "cost": "Varies"
+            }
+        elif current_alt:
+            if not current_alt.get("description"):
+                current_alt["description"] = line
+            elif not current_alt.get("reason"):
+                current_alt["reason"] = line
+            elif not current_alt.get("tips"):
+                current_alt["tips"] = line
+    
+    if current_alt and current_alt.get('title'):
+        alternatives.append(current_alt)
+    
+    return alternatives[:4]  # Limit to 4 alternatives
 
 
 def generate_fallback_plan_b(

@@ -216,13 +216,16 @@ def get_risk_analysis(request: RiskRequest):
                 # Get season from cold_risk data
                 season = cold_risk.get('season', 'Unknown')
                 
-                # Try Gemini first, fallback to static alternatives
+                # Try Gemini first with enhanced context, fallback to static alternatives
                 plan_b = generate_plan_b_with_gemini(
                     activity=request.activity,
                     weather_condition=weather_condition,
                     risk_level=risk_data['risk_level'],
                     location="Montevideo, Uruguay",
-                    season=season
+                    season=season,
+                    temperature_risk=temperature_risk['probability'],
+                    precipitation_risk=precipitation_risk['probability'],
+                    cold_risk=cold_risk['probability']
                 )
                 
                 # If Gemini fails, use fallback
@@ -305,6 +308,92 @@ async def test_endpoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Test failed: {str(e)}")
 
+# Regenerate Plan B request model
+class RegeneratePlanBRequest(BaseModel):
+    activity: str = "general"
+    weather_conditions: list = []
+    location: str = "Montevideo, Uruguay"
+    date: str = ""
+    temperature_risk: float = 0.0
+    precipitation_risk: float = 0.0
+    cold_risk: float = 0.0
+
+# Regenerate Plan B endpoint
+@app.post("/api/regenerate-plan-b")
+def regenerate_plan_b(request: RegeneratePlanBRequest):
+    """
+    Regenerate Plan B alternatives using Gemini AI
+    """
+    try:
+        # Extract data from request
+        activity = request.activity
+        weather_conditions = request.weather_conditions
+        location = request.location
+        temperature_risk = request.temperature_risk
+        precipitation_risk = request.precipitation_risk
+        cold_risk = request.cold_risk
+        
+        # Determine primary weather condition
+        primary_condition = 'adverse'
+        if 'wet' in weather_conditions or 'rainy' in weather_conditions:
+            primary_condition = 'rainy'
+        elif 'hot' in weather_conditions:
+            primary_condition = 'hot'
+        elif 'cold' in weather_conditions:
+            primary_condition = 'cold'
+        elif 'windy' in weather_conditions:
+            primary_condition = 'windy'
+        
+        # Determine risk level based on probabilities
+        max_risk = max(temperature_risk, precipitation_risk, cold_risk)
+        if max_risk >= 30:
+            risk_level = "HIGH"
+        elif max_risk >= 15:
+            risk_level = "MODERATE"
+        elif max_risk >= 5:
+            risk_level = "LOW"
+        else:
+            risk_level = "MINIMAL"
+        
+        # Generate Plan B with Gemini AI
+        plan_b = generate_plan_b_with_gemini(
+            activity=activity,
+            weather_condition=primary_condition,
+            risk_level=risk_level,
+            location=location,
+            season="Summer",
+            temperature_risk=temperature_risk,
+            precipitation_risk=precipitation_risk,
+            cold_risk=cold_risk
+        )
+        
+        # If Gemini fails, use fallback
+        if not plan_b.get('success', False):
+            plan_b = generate_fallback_plan_b(
+                activity=activity,
+                weather_condition=primary_condition,
+                risk_level=risk_level,
+                location=location,
+                season="Summer"
+            )
+        
+        return {
+            "success": plan_b.get('success', False),
+            "alternatives": plan_b.get('alternatives', []),
+            "ai_model": plan_b.get('ai_model', 'Fallback System'),
+            "message": plan_b.get('message', 'Plan B generated'),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "alternatives": [],
+            "ai_model": "Error",
+            "message": f"Error regenerating Plan B: {str(e)}",
+            "generated_at": datetime.now().isoformat()
+        }
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -314,6 +403,7 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "risk_analysis": "POST /api/risk",
+            "regenerate_plan_b": "POST /api/regenerate-plan-b",
             "test": "GET /api/test",
             "docs": "GET /docs"
         },

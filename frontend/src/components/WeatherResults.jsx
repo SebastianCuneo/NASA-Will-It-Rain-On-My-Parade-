@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 const WeatherResults = ({ data, isNightMode }) => {
   const [planBData, setPlanBData] = useState(null);
   const [planBLoading, setPlanBLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   // Mock data for weather conditions
   const mockData = {
@@ -215,6 +216,59 @@ const WeatherResults = ({ data, isNightMode }) => {
     }
   }, [activityCompatibility, weatherConditions, activity, plan_b]);
 
+  // Function to regenerate Plan B
+  const regeneratePlanB = async () => {
+    if (!activityCompatibility || activityCompatibility.isGood) return;
+    
+    setRegenerating(true);
+    setPlanBData(null);
+    
+    try {
+      // Call backend API to regenerate Plan B
+      const response = await fetch('http://localhost:8000/api/regenerate-plan-b', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          activity: activity,
+          weather_conditions: weatherConditions,
+          location: 'Montevideo, Uruguay',
+          date: data.date || new Date().toISOString().split('T')[0],
+          temperature_risk: data.temperature_risk?.probability || 0,
+          precipitation_risk: data.precipitation_risk?.probability || 0,
+          cold_risk: data.cold_risk?.probability || 0
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Regenerate response:', result);
+        
+        if (result.success && result.alternatives && result.alternatives.length > 0) {
+          setPlanBData(result.alternatives);
+        } else {
+          console.log('Regenerate failed, using fallback');
+          // Fallback to dynamic generation
+          const planBOptions = generateDynamicPlanB(weatherConditions, activity);
+          setPlanBData(planBOptions);
+        }
+      } else {
+        console.log('Regenerate API error, using fallback');
+        // Fallback to dynamic generation
+        const planBOptions = generateDynamicPlanB(weatherConditions, activity);
+        setPlanBData(planBOptions);
+      }
+    } catch (error) {
+      console.error('Error regenerating Plan B:', error);
+      // Fallback to dynamic generation
+      const planBOptions = generateDynamicPlanB(weatherConditions, activity);
+      setPlanBData(planBOptions);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   // Dynamic Plan B generation based on weather conditions
   const generateDynamicPlanB = (conditions, originalActivity) => {
     const planBOptions = [];
@@ -287,38 +341,71 @@ const WeatherResults = ({ data, isNightMode }) => {
                           Alternative Activities:
                         </p>
                         {planBData.map((alt, index) => (
-                          <div key={index} className={`mt-3 text-left p-3 rounded-md ${
+                          <div key={index} className={`mt-3 text-left p-4 rounded-lg border ${
                             isNightMode 
-                              ? 'bg-slate-800/70 border border-slate-700' 
-                              : 'bg-white border border-gray-200'
+                              ? 'bg-slate-800/70 border-slate-700' 
+                              : 'bg-white border-gray-200'
                           }`}>
-                            <p className={`font-bold ${isNightMode ? 'text-yellow-300' : 'text-blue-600'}`}>
-                              {alt.title || alt.activityName}
-                            </p>
-                            <p className={`text-xs mt-1 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                            <div className="flex items-start justify-between mb-2">
+                              <p className={`font-bold text-lg ${isNightMode ? 'text-yellow-300' : 'text-blue-600'}`}>
+                                {alt.title || alt.activityName}
+                              </p>
+                              {alt.type && (
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  alt.type === 'indoor' 
+                                    ? (isNightMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700')
+                                    : alt.type === 'outdoor'
+                                    ? (isNightMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700')
+                                    : (isNightMode ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700')
+                                }`}>
+                                  {alt.type}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <p className={`text-sm mb-2 ${isNightMode ? 'text-slate-300' : 'text-gray-700'}`}>
                               {alt.description || alt.recommendation}
                             </p>
+                            
                             {alt.reason && (
-                              <p className={`text-xs mt-1 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
-                                <strong>Why:</strong> {alt.reason}
-                              </p>
+                              <div className={`mb-2 p-2 rounded ${isNightMode ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                                <p className={`text-xs font-medium ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                                  <strong>Why this works:</strong> {alt.reason}
+                                </p>
+                              </div>
                             )}
+                            
                             {alt.tips && (
-                              <p className={`text-xs mt-1 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
-                                <strong>Tips:</strong> {alt.tips}
-                              </p>
+                              <div className={`mb-2 p-2 rounded ${isNightMode ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                                <p className={`text-xs font-medium ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                                  <strong>💡 Tips:</strong> {alt.tips}
+                                </p>
+                              </div>
                             )}
-                            {alt.type && (
-                              <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs ${
-                                alt.type === 'indoor' 
-                                  ? (isNightMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700')
-                                  : alt.type === 'outdoor'
-                                  ? (isNightMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700')
-                                  : (isNightMode ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700')
-                              }`}>
-                                {alt.type}
-                              </span>
-                            )}
+                            
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {alt.location && (
+                                <span className={`px-2 py-1 rounded text-xs ${isNightMode ? 'bg-slate-600 text-slate-300' : 'bg-gray-100 text-gray-600'}`}>
+                                  📍 {alt.location}
+                                </span>
+                              )}
+                              {alt.duration && (
+                                <span className={`px-2 py-1 rounded text-xs ${isNightMode ? 'bg-slate-600 text-slate-300' : 'bg-gray-100 text-gray-600'}`}>
+                                  ⏱️ {alt.duration}
+                                </span>
+                              )}
+                              {alt.cost && (
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  alt.cost === 'Free' 
+                                    ? (isNightMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700')
+                                    : alt.cost === 'Low'
+                                    ? (isNightMode ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700')
+                                    : (isNightMode ? 'bg-orange-900/30 text-orange-300' : 'bg-orange-100 text-orange-700')
+                                }`}>
+                                  💰 {alt.cost}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ))}
                         {plan_b && plan_b.ai_model && (
@@ -326,6 +413,42 @@ const WeatherResults = ({ data, isNightMode }) => {
                             Powered by {plan_b.ai_model}
                           </p>
                         )}
+                        
+                        {/* Regenerate Button */}
+                        <div className="mt-4 pt-3 border-t border-slate-600">
+                          <button
+                            onClick={regeneratePlanB}
+                            disabled={regenerating || planBLoading}
+                            className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
+                              regenerating || planBLoading
+                                ? 'bg-slate-600 text-slate-400 cursor-not-allowed scale-100'
+                                : isNightMode
+                                ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-blue-500/25'
+                                : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
+                            }`}
+                          >
+                            {regenerating ? (
+                              <>
+                                <div className="flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-3"></div>
+                                  <span>Generating new alternatives...</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-center">
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                  </svg>
+                                  <span>Generate New Alternatives</span>
+                                </div>
+                              </>
+                            )}
+                          </button>
+                          <p className={`text-xs mt-2 text-center ${isNightMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                            Don't like these suggestions? Get new ones!
+                          </p>
+                        </div>
                       </>
                     ) : null}
                   </div>
