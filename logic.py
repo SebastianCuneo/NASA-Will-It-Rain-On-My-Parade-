@@ -35,13 +35,16 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
     Returns:
         pd.DataFrame: DataFrame with columns 'Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'
     """
+    # Define el DataFrame vacío de fallback
+    empty_df = pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
+    
     try:
         # Construct the NASA POWER API URL
         base_url = "https://power.larc.nasa.gov/api/temporal/daily/point"
         
         # Format dates as YYYYMMDD
-        start_date = f"{start_year}0101"  # January 1st
-        end_date = f"{end_year}1231"      # December 31st
+        start_date = f"{start_year}0101" 
+        end_date = f"{end_year}1231" 
         
         # API parameters
         params = {
@@ -58,6 +61,7 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         
         # Make API request with timeout and retry logic
         max_retries = 3
+        response = None # Inicializar response
         for attempt in range(max_retries):
             try:
                 response = requests.get(base_url, params=params, timeout=30)
@@ -65,16 +69,27 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
                 break
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
-                    raise Exception(f"Failed to fetch NASA POWER data after {max_retries} attempts: {str(e)}")
+                    print(f"Failed to fetch NASA POWER data after {max_retries} attempts: {str(e)}")
+                    return empty_df # Retorna vacío después de fallar todos los reintentos
                 print(f"Attempt {attempt + 1} failed, retrying in 2 seconds...")
                 time.sleep(2)
         
+        if response is None:
+            return empty_df # Asegura que si no hubo respuesta, se devuelve vacío
+            
         # Parse JSON response
         data = response.json()
         
+        # 🚨 CAMBIO CLAVE 1: Verificar si la respuesta JSON es un mensaje de error 🚨
+        if 'messages' in data or 'message' in data or ('properties' not in data and 'parameter' not in data.get('properties', {})):
+            print(f"NASA API returned an error message or invalid structure. Keys: {data.keys()}")
+            return empty_df
+            
         # Extract time series data - NASA POWER API structure
         if 'properties' not in data or 'parameter' not in data['properties']:
-            raise Exception("Invalid response format from NASA POWER API - no 'properties.parameter' key found")
+            # Esto atrapa el caso que ya tenías
+            print("Invalid response format from NASA POWER API - no 'properties.parameter' key found")
+            return empty_df
         
         parameters = data['properties']['parameter']
         
@@ -83,8 +98,9 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         precip_data = parameters.get('PRECTOTCORR', {})
         
         if not temp_data or not precip_data:
-            raise Exception("Temperature or precipitation data not found in API response")
-        
+            print("Temperature or precipitation data not found in API response")
+            return empty_df
+            
         # Convert to DataFrame
         records = []
         for date_str, temp_value in temp_data.items():
@@ -92,10 +108,7 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
                 # Parse date (format: YYYYMMDD)
                 date_obj = datetime.strptime(date_str, '%Y%m%d')
                 
-                # Temperature is already in Celsius from NASA POWER API
                 temp_celsius = temp_value if temp_value is not None else None
-                
-                # Precipitation is already in mm/day
                 precip_mm = precip_data[date_str] if precip_data[date_str] is not None else None
                 
                 records.append({
@@ -106,7 +119,8 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
                 })
         
         if not records:
-            raise Exception("No valid data records found in API response")
+            print("No valid data records found in API response")
+            return empty_df
         
         df = pd.DataFrame(records)
         
@@ -120,11 +134,11 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         return df
         
     except Exception as e:
-        print(f"Error fetching NASA POWER data: {str(e)}")
-        # Fallback to mock data if API fails
-        raise Exception(f"Failed to process NASA POWER data: {str(e)}")
-
-def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -56.16) -> pd.DataFrame:
+        # 🚨 CAMBIO CLAVE 2: En caso de cualquier error de procesamiento, retorna un DF vacío 🚨
+        print(f"Fatal Error fetching or processing NASA POWER data: {str(e)}")
+        # Ya no lanzamos 'raise Exception', devolvemos el DF vacío para que el código que llama no falle.
+        return empty_df
+def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -56.16) -> Dict[str, Any]:
     """
     Load and filter historical data by month using NASA POWER API
     
@@ -134,7 +148,7 @@ def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -5
         lon: Longitude coordinate (default: Montevideo)
         
     Returns:
-        pd.DataFrame: Filtered data for the specified month
+        Dict: Dictionary containing the filtered DataFrame and the climate trend analysis.
     """
     try:
         if not isinstance(month_filter, int) or month_filter < 1 or month_filter > 12:
@@ -166,13 +180,20 @@ def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -5
             raise ValueError(f"No data found for month {month_filter}")
         
         print(f"Loaded {len(monthly_data)} records for month {month_filter} from NASA POWER API")
-        return monthly_data
+        climate_trend = analyze_climate_change_trend(monthly_data)
+        return {
+            'data': monthly_data,
+            'climate_trend': climate_trend
+        }
         
     except Exception as e:
         print(f"Error in load_historical_data: {str(e)}")
         # Return empty DataFrame instead of raising exception
         print("NASA POWER API failed - returning empty DataFrame")
-        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
+        return {
+            'data': pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm']),
+            'climate_trend': analyze_climate_change_trend(pd.DataFrame())
+        }
 
 
 def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
@@ -225,6 +246,47 @@ def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         'adverse_count': adverse_count
     }
 
+def get_plot_data(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Prepares temperature data for Plotly visualization (Historical Avg, P90, Recent Year).
+    """
+    if monthly_data.empty or 'Max_Temperature_C' not in monthly_data.columns:
+        return {
+            'historic_avg_c': 0.0,
+            'p90_threshold_c': 0.0,
+            'recent_year_data': [],
+            'recent_year': None,
+            'historic_range': {'min': 0.0, 'max': 0.0},
+            'historic_data_available': False
+        }
+
+    # 1. Calculate P90 Threshold
+    valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
+    p90_threshold = np.percentile(valid_temp_data['Max_Temperature_C'], 90)
+
+    # 2. Calculate the Overall Historical Average and Range
+    historic_avg = valid_temp_data['Max_Temperature_C'].mean()
+    historic_min = valid_temp_data['Max_Temperature_C'].min()
+    historic_max = valid_temp_data['Max_Temperature_C'].max()
+
+    # 3. Get Recent Year Data for comparison
+    recent_year = monthly_data['Year'].max()
+    recent_data = monthly_data[monthly_data['Year'] == recent_year].copy()
+    
+    # Create a 'Day' column for plotting (Day 1, Day 2, etc. of the month)
+    recent_data['Day'] = recent_data.index - recent_data.index[0] + 1
+    
+    # Structure the recent data for simple plotting (Day vs Temp)
+    recent_plot_data = recent_data[['Day', 'Max_Temperature_C']].to_dict('records')
+    
+    return {
+        'p90_threshold_c': round(p90_threshold, 1),
+        'historic_avg_c': round(historic_avg, 1),
+        'historic_range': {'min': round(historic_min, 1), 'max': round(historic_max, 1)},
+        'recent_year_data': recent_plot_data,
+        'recent_year': recent_year,
+        'historic_data_available': True
+    }
 
 def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -381,7 +443,56 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
         'season': season,
         'activity': activity
     }
+def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: int = 30) -> Dict[str, Any]:
+    """
+    Compares the most recent year's temperature data with the long-term historical average.
+    """
+    if monthly_data.empty:
+        return {
+            'trend_status': 'UNKNOWN',
+            'historical_mean': 0.0,
+            'recent_mean': 0.0,
+            'difference': 0.0,
+            'message': "No data available for trend analysis."
+        }
 
+    recent_year = monthly_data['Year'].max()
+    recent_data = monthly_data[monthly_data['Year'] == recent_year]
+    historical_data = monthly_data[monthly_data['Year'] < recent_year]
+    
+    if historical_data.empty or recent_data.empty:
+        return {
+            'trend_status': 'INSUFFICIENT_DATA',
+            'historical_mean': 0.0,
+            'recent_mean': 0.0,
+            'difference': 0.0,
+            'message': "Insufficient data to compare recent year with historical average."
+        }
+    
+    historical_mean = historical_data['Max_Temperature_C'].mean()
+    recent_mean = recent_data['Max_Temperature_C'].mean()
+    difference = recent_mean - historical_mean
+    
+    if difference >= 1.0:
+        trend_status = 'SIGNIFICANT_WARMING'
+        message = f"🔴 The most recent year was significantly warmer (+{difference:.2f}°C) than the long-term average."
+    elif difference >= 0.5:
+        trend_status = 'WARMING_TREND'
+        message = f"🟠 The most recent year was warmer (+{difference:.2f}°C) than the long-term average."
+    elif difference <= -0.5:
+        trend_status = 'COOLING_TREND'
+        message = f"🔵 The most recent year was cooler ({difference:.2f}°C) than the long-term average."
+    else:
+        trend_status = 'STABLE'
+        message = f"🟢 Temperatures in the most recent year were close to the long-term average (diff: {difference:.2f}°C)."
+
+    return {
+        'trend_status': trend_status,
+        'historical_mean': round(historical_mean, 2),
+        'recent_mean': round(recent_mean, 2),
+        'difference': round(difference, 2),
+        'message': message
+    }
 
 def generate_plan_b_with_gemini(
     activity: str,
@@ -772,22 +883,29 @@ def test_nasa_power_integration():
         test_lon = -56.16
         test_start_year = 2020
         test_end_year = 2024
-        
-        print(f"Testing with coordinates: ({test_lat}, {test_lon})")
+      
+        print(f"Testing with coordinates: ({test_lat}, {test_lon}")
         print(f"Date range: {test_start_year} to {test_end_year}")
-        
-        # Fetch data
+
+        #Fetch data 
         df = fetch_nasa_power_data(test_lat, test_lon, test_start_year, test_end_year)
         
         print(f"Successfully fetched {len(df)} records")
-        print(f"Data shape: {df.shape}")
-        print(f"Date range: {df['Year'].min()}-{df['Year'].max()}")
-        print(f"Temperature range: {df['Max_Temperature_C'].min():.1f}C to {df['Max_Temperature_C'].max():.1f}C")
-        print(f"Precipitation range: {df['Precipitation_mm'].min():.1f}mm to {df['Precipitation_mm'].max():.1f}mm")
-        
-        # Test month filtering
-        march_data = load_historical_data(3)  # March
+
+        # Test month filtering and trend analysis
+        load_result = load_historical_data(3)   # March
+        march_data = load_result['data']
+        climate_trend = load_result['climate_trend']
         print(f"March data: {len(march_data)} records")
+        
+        # Test the trend analysis
+        print(f"Climate Trend Status: {climate_trend['trend_status']}")
+        print(f"Trend Message: {climate_trend['message']}")
+
+        # Test Plotly data preparation
+        plot_result = get_plot_data(march_data['data'])
+        print(f"P90 Threshold for Plot: {plot_result['p90_threshold_c']}C")
+        print(f"Recent Year Data Points for Plot: {len(plot_result['recent_year_data'])}")
         
         # Test risk calculation
         risk_analysis = calculate_adverse_probability(march_data)

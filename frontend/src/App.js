@@ -64,86 +64,99 @@ function App() {
 
   const handleFormSubmit = async (data) => {
     if (data.weatherConditions.length === 0) {
-      showTemporaryMessage('Por favor, selecciona al menos una condición climática.', 'error');
-      return;
-    }
-
-    setFormData(data);
-    setLoading(true);
-    setResults(null);
-
-    try {
-      // Create payload for API call
-      const apiPayload = {
-        latitude: data.latitude,  // Use coordinates from form
-        longitude: data.longitude,
-        event_date: data.event_date,  // Send date as string
-        adverse_condition: data.weatherConditions[0] || 'Very Hot'  // Send first selected condition
-      };
-      
-      // Debugging: Log API payload
-      console.log('App.js API Payload:', apiPayload);
-      console.log('API URL: http://localhost:8000/api/risk');
-      
-      // Call the FastAPI backend
-      const response = await fetch('http://localhost:8000/api/risk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiPayload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
-      }
-
-      const apiData = await response.json();
-      
-      // Debugging: Log API response
-      console.log('App.js API Response:', apiData);
-      
-      // Extract risk analysis from the new API response structure
-      const temperatureRisk = apiData.data.temperature_risk;
-      const precipitationRisk = apiData.data.precipitation_risk;
-      const coldRisk = apiData.data.cold_risk;
-      const planB = apiData.data.plan_b;
-      
-      // Combine API data with form data
-      const combinedData = {
-        ...data,
-        apiResults: apiData,
-        temperature_risk: {
-          probability: temperatureRisk.probability,
-          risk_level: temperatureRisk.risk_level,
-          status_message: temperatureRisk.status_message,
-          risk_threshold: temperatureRisk.risk_threshold
-        },
-        precipitation_risk: {
-          probability: precipitationRisk.probability,
-          risk_level: precipitationRisk.risk_level,
-          status_message: precipitationRisk.status_message,
-          risk_threshold: precipitationRisk.risk_threshold
-        },
-        cold_risk: {
-          probability: coldRisk.probability,
-          risk_level: coldRisk.risk_level,
-          status_message: coldRisk.status_message,
-          risk_threshold: coldRisk.risk_threshold
-        },
-        plan_b: planB
-      };
-
-      setResults(combinedData);
-    } catch (error) {
-      console.error('API Error:', error);
-      showTemporaryMessage('Error connecting to weather service. Using offline data.', 'warning');
-      // Fallback to mock data
-      setResults(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+    showTemporaryMessage('Por favor, selecciona al menos una condición climática.', 'error');
+     return;
+     }
+    
+     setFormData(data);
+     setLoading(true);
+     setResults(null);
+    
+     try {
+     // Create payload for API call
+     const apiPayload = {
+     latitude: data.latitude,  // Use coordinates from form
+     longitude: data.longitude,
+     event_date: data.event_date,  // Send date as string
+     adverse_condition: data.weatherConditions[0] || 'Very Hot'  // Send first selected condition
+       };
+    
+    // Debugging: Log API payload
+     console.log('App.js API Payload:', apiPayload);
+     console.log('API URL: http://localhost:8000/api/risk');
+    
+     // Call the FastAPI backend
+     const response = await fetch('http://localhost:8000/api/risk', {
+     method: 'POST',
+     headers: {
+     'Content-Type': 'application/json',
+     },
+     body: JSON.stringify(apiPayload)
+     });
+    
+          // === 1. ÚNICA VERIFICACIÓN DE RESPUESTA ===
+          if (!response.ok) {
+            throw new Error(`API call failed: ${response.status}`);
+          }
+    
+          // === 2. PARSEO DE JSON ===
+          const apiData = await response.json();
+          
+          // Debugging: Log API response
+          console.log('App.js API Response:', apiData);
+          
+          // Extract data from the new API response structure
+          const temperatureRisk = apiData.data.temperature_risk;
+          const precipitationRisk = apiData.data.precipitation_risk;
+          const coldRisk = apiData.data.cold_risk;
+          const planB = apiData.data.plan_b;
+          
+          // === NUEVAS CLAVES DE logic.py ===
+          const plotData = apiData.data.plot_data; 
+          const climateTrend = apiData.data.climate_trend;
+          // ==================================
+          
+          // Combine API data with form data
+          const combinedData = {
+            ...data,
+            apiResults: apiData,
+            temperature_risk: {
+              probability: temperatureRisk.probability,
+              risk_level: temperatureRisk.risk_level,
+              status_message: temperatureRisk.status_message,
+              risk_threshold: temperatureRisk.risk_threshold
+            },
+            precipitation_risk: {
+              probability: precipitationRisk.probability,
+              risk_level: precipitationRisk.risk_level,
+              status_message: precipitationRisk.status_message,
+              risk_threshold: precipitationRisk.risk_threshold
+            },
+            cold_risk: {
+              probability: coldRisk.probability,
+              risk_level: coldRisk.risk_level,
+              status_message: coldRisk.status_message,
+              risk_threshold: coldRisk.risk_threshold
+            },
+            plan_b: planB,
+            
+            // === AÑADIR DATOS DE PLOTLY Y CLIMA AL OBJETO RESULTS ===
+            plot_data: plotData,
+            climate_trend: climateTrend
+            // ========================================================
+          };
+    
+          setResults(combinedData);
+    
+        } catch (error) {
+          console.error('API Error:', error);
+          showTemporaryMessage('Error connecting to weather service. Using offline data.', 'warning');
+          // Fallback to mock data
+          setResults(data);
+        } finally {
+          setLoading(false);
+        }
+      };
 
   return (
     <div className="min-h-screen relative">
@@ -277,12 +290,49 @@ function App() {
                 </div>
               )}
 
-              {results && (
-                <WeatherResults
-                  data={results}
-                  isNightMode={isNightMode}
-                />
-              )}
+              {results && (
+                <>
+                  {/* ========================================================= */}
+                  {/* 1. BANNER DE CAMBIO CLIMÁTICO */}
+                  {results.climate_trend && (
+                    <div className={`p-4 rounded-xl shadow-md mb-6 transition-all ${
+                        results.climate_trend.trend_status === 'SIGNIFICANT_WARMING' 
+                          ? 'bg-red-600/30 text-red-100 border-l-4 border-red-500' 
+                          : 'bg-green-600/30 text-green-100 border-l-4 border-green-500'
+                        }`}>
+                      <p className="font-bold">Análisis de Tendencia Climática:</p>
+                      <p>{results.climate_trend.message}</p>
+                    </div>
+                  )}
+                  
+                  {/* ========================================================= */}
+                  {/* 2. GRÁFICO P90 (Placeholder de Plotly) */}
+                  {results.plot_data && (
+                    <div className={`p-4 rounded-2xl shadow-xl mb-6 ${
+                      isNightMode 
+                        ? 'bg-slate-700/70 border border-slate-600 text-white' 
+                        : 'bg-gray-100/90 border border-gray-200 text-gray-800'
+                      }`}>
+                        <h3 className="text-xl font-bold mb-3">
+                          📈 Gráfico: Umbral P90 vs. Tendencia
+                        </h3>
+                        {/* 🛑 ESTE ES EL LUGAR DONDE VA EL COMPONENTE REAL DE PLOTLY */}
+                        <div className="h-64 flex items-center justify-center border-2 border-dashed border-sky-500/50 rounded-lg bg-sky-500/10 text-center p-4">
+                          <p className='text-sm font-semibold'>
+                            Placeholder: Para ver el gráfico, debes instalar **react-plotly.js** y crear el componente `<PlotlyChart />` aquí. 
+                          </p>
+                        </div>
+                    </div>
+                  )}
+                  
+                  {/* 3. RIESGOS Y PLAN B (Componente Existente) */}
+                  <WeatherResults
+                    data={results}
+                    isNightMode={isNightMode}
+                  />
+                </>
+              )}
+
 
               {!loading && !results && (
                 <div className={`text-center py-12 ${
