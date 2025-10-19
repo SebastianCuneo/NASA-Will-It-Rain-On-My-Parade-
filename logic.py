@@ -122,13 +122,7 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
     except Exception as e:
         print(f"Error fetching NASA POWER data: {str(e)}")
         # Fallback to mock data if API fails
-        print("Falling back to mock data...")
-        try:
-            df = pd.read_csv('mock_data.csv')
-            return df
-        except FileNotFoundError:
-            raise Exception(f"NASA POWER API failed and mock data not found: {str(e)}")
-
+        raise Exception(f"Failed to process NASA POWER data: {str(e)}")
 
 def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -56.16) -> pd.DataFrame:
     """
@@ -193,33 +187,35 @@ def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
     
     if len(valid_temp_data) == 0:
-        raise ValueError("No valid temperature data found")
+        return {
+            'probability': 0.0,
+            'risk_threshold': 0.0,
+            'status_message': "No valid temperature data for P90 calculation.",
+            'risk_level': "UNKNOWN",
+            'total_observations': len(monthly_data),
+            'adverse_count': 0
+        }
+    risk_threshold = np.percentile(valid_temp_data['Max_Temperature_C'], 90)
     
-    # Use a fixed threshold for hot weather (30°C is considered hot for outdoor activities)
-    risk_threshold = 30.0
     
     # Count adverse events (days above the hot weather threshold)
     adverse_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] > risk_threshold]
-    total_observations = len(monthly_data)
+    total_observations = len(valid_temp_data)
     adverse_count = len(adverse_events)
     
     # Calculate probability as percentage of days above threshold
     probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
     
     # Generate status message
-    if probability >= 20:
+    if risk_threshold >= 30.0: # If the extreme temperature (P90) is 30C or more
         risk_level = "HIGH"
-        status_message = "🚨 HIGH RISK of extreme heat! Consider alternative dates."
-    elif probability >= 10:
+        status_message = f"🚨 HIGH RISK of extreme heat! P90 Threshold: {risk_threshold:.1f}°C. Extreme heat days expected to exceed this."
+    elif risk_threshold >= 25.0: # If the extreme temperature (P90) is between 25C and 30C
         risk_level = "MODERATE"
-        status_message = "⚠️ MODERATE RISK of warm weather. Monitor conditions."
-    elif probability >= 5:
-        risk_level = "LOW"
-        status_message = "🌤️ LOW RISK of adverse conditions. Favorable weather."
+        status_message = f"⚠️ MODERATE RISK of warm weather. P90 Threshold: {risk_threshold:.1f}°C. Warm weather expected on average."
     else:
-        risk_level = "MINIMAL"
-        status_message = "☀️ MINIMAL RISK of extreme heat. Excellent conditions."
-    
+        risk_level = "LOW"
+        status_message = f"☀️ LOW RISK of extreme heat. P90 Threshold: {risk_threshold:.1f}°C. Comfortable temperatures expected."
     return {
         'probability': round(probability, 1),
         'risk_threshold': round(risk_threshold, 1),
@@ -422,8 +418,8 @@ def generate_plan_b_with_gemini(
     
     try:
         # Configure Gemini API with better error handling
-        api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyCp0Jvb1FVFIUOo1NHRCyFFf_G09lzU5G0"
-        if not api_key or api_key == "your_gemini_api_key_here":
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
             return {
                 "success": False,
                 "message": "Gemini API key not configured. Please set GEMINI_API_KEY environment variable.",
