@@ -14,7 +14,7 @@ function App() {
   const [formData, setFormData] = useState({
     location: 'Montevideo',
     date: new Date().toISOString().split('T')[0],
-    weatherConditions: ['wet', 'hot'],
+    weatherConditions: ['wet'],
     activity: null
   });
   const [results, setResults] = useState(null);
