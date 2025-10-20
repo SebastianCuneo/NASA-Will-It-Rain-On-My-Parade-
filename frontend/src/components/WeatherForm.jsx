@@ -110,9 +110,10 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const toggleWeatherCondition = (conditionId) => {
     setFormData(prev => ({
       ...prev,
+      // Enforce single-select: select the clicked one or clear if clicked again
       weatherConditions: prev.weatherConditions.includes(conditionId)
-        ? prev.weatherConditions.filter(id => id !== conditionId)
-        : [...prev.weatherConditions, conditionId]
+        ? []
+        : [conditionId]
     }));
   };
 
@@ -258,7 +259,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       {/* Step 3: Weather Conditions */}
       <div>
         <label className="block text-lg font-bold text-slate-300 mb-4">
-          Step 3: What conditions concern you?
+          Step 3: What condition concerns you? (single choice)
         </label>
         <div id="weather-options" className="grid grid-cols-3 gap-4">
           {weatherOptions.map((option) => (
