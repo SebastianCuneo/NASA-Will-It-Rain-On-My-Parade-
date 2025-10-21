@@ -4,7 +4,7 @@
  * Adapted from original HTML design with mock data
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 const WeatherResults = ({ data, isNightMode }) => {
   const [planBData, setPlanBData] = useState(null);
@@ -192,27 +192,46 @@ const WeatherResults = ({ data, isNightMode }) => {
     return suggestions;
   };
 
-  const activityCompatibility = checkActivityCompatibility(weatherConditions, activity);
+  // Memoize compatibility to avoid recalculations that retrigger effects every render
+  const activityCompatibility = useMemo(() => {
+    return checkActivityCompatibility(weatherConditions, activity);
+    // Dependencies reflect the inputs used inside checkActivityCompatibility
+  }, [weatherConditions, activity, apiResults, temperature_risk, precipitation_risk, cold_risk]);
 
   // Generate Plan B if activity is not compatible
+  // Avoid flicker: only load Plan B once per scenario and avoid resetting state on every render
+  const planBInitializedRef = useRef(false);
   useEffect(() => {
-    if (activityCompatibility && !activityCompatibility.isGood) {
-      if (plan_b && plan_b.success && plan_b.alternatives) {
-        // Use real Plan B data from backend
-        setPlanBData(plan_b.alternatives);
-        setPlanBLoading(false);
-      } else {
-        setPlanBLoading(true);
-        // Simulate API call delay for fallback
-        setTimeout(() => {
-          // Dynamic Plan B based on weather conditions
-          const planBOptions = generateDynamicPlanB(weatherConditions, activity);
-          setPlanBData(planBOptions);
-          setPlanBLoading(false);
-        }, 1500);
-      }
+    const needsAlternatives = activityCompatibility && !activityCompatibility.isGood;
+    if (!needsAlternatives) {
+      // Clear previous Plan B if conditions are good
+      planBInitializedRef.current = false;
+      setPlanBLoading(false);
+      setPlanBData(null);
+      return;
     }
-  }, [activityCompatibility, weatherConditions, activity, plan_b]);
+
+    // If already initialized with current scenario, skip
+    if (planBInitializedRef.current && (planBData && planBData.length > 0)) return;
+
+    // Prefer backend-provided Plan B when available
+    if (plan_b && plan_b.success && plan_b.alternatives && plan_b.alternatives.length > 0) {
+      setPlanBData(plan_b.alternatives);
+      setPlanBLoading(false);
+      planBInitializedRef.current = true;
+      return;
+    }
+
+    if (!planBLoading) setPlanBLoading(true);
+    const timeout = setTimeout(() => {
+      const planBOptions = generateDynamicPlanB(weatherConditions, activity);
+      setPlanBData(planBOptions);
+      setPlanBLoading(false);
+      planBInitializedRef.current = true;
+    }, 600);
+
+    return () => clearTimeout(timeout);
+  }, [activityCompatibility?.isGood, plan_b, weatherConditions, activity, planBLoading, planBData]);
 
   // Function to regenerate Plan B
   const regeneratePlanB = async () => {
