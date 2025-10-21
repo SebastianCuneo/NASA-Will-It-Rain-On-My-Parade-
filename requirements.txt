@@ -1,11 +1,14 @@
-streamlit
-pandas
-altair
-fastapi
-uvicorn
-python-multipart
-requests
-numpy
-google-generativeai
+# NASA Weather Risk Navigator - Dependencies
+# Install backend and frontend dependencies separately
 
+# For Backend (Python):
+# pip install -r backend/requirements.txt
 
+# For Frontend (Node.js):
+# cd frontend && npm install
+
+# Quick install all:
+# pip install -r backend/requirements.txt && cd frontend && npm install
+
+# Backend Python dependencies are in: backend/requirements.txt
+# Frontend Node.js dependencies are in: frontend/package.json
