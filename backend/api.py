@@ -14,9 +14,7 @@ import sys
 import os
 from datetime import datetime
 
-# Add parent directory to path to import logic module
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# Import logic module from same directory
 try:
     from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b
 except ImportError as e:
@@ -147,11 +145,15 @@ def get_risk_analysis(request: RiskRequest):
         
         # Paso B: Cargar datos de NASA POWER
         try:
-            historical_data = load_historical_data(
+            result = load_historical_data(
                 month_filter=month_filter,
                 lat=request.latitude,
                 lon=request.longitude
             )
+            
+            # Extract DataFrame from result
+            historical_data = result['data']
+            climate_trend = result['climate_trend']
             
             # 2. Verificar si el DataFrame está vacío (datos de NASA fallaron)
             if historical_data.empty:
@@ -292,7 +294,8 @@ async def test_endpoint():
     """Test endpoint to verify API functionality"""
     try:
         # Test with March data using default Montevideo coordinates
-        monthly_data = load_historical_data(3, -34.90, -56.16)
+        result = load_historical_data(3, -34.90, -56.16)
+        monthly_data = result['data']
         risk_results = calculate_adverse_probability(monthly_data)
         
         return {

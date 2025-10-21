@@ -1,6 +1,8 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pandas
 numpy
+requests
 python-multipart
 pydantic
+google-generativeai

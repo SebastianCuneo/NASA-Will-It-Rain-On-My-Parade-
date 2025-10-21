@@ -24,27 +24,41 @@ The application provides historical weather risk analysis using a 90th percentil
 
 ```
 NASA-Will-It-Rain-On-My-Parade-/
-├── frontend/                    # React Application
+│
+├── backend/                           # Backend Python (FastAPI)
+│   ├── api.py                         # API REST con endpoints
+│   ├── logic.py                       # Lógica de negocio y cálculos
+│   ├── mock_data.csv                  # Datos de fallback
+│   ├── requirements.txt               # Dependencias Python
+│   └── tests/                         # Tests del backend
+│       ├── test_gemini_plan_b.py      # Tests de Gemini AI
+│       └── test_verification.py       # Tests de NASA API
+│
+├── frontend/                          # Frontend React
 │   ├── src/
-│   │   ├── components/          # React Components
-│   │   │   ├── WeatherForm.jsx  # Multi-step form component
-│   │   │   └── WeatherResults.jsx # Results display component
-│   │   ├── App.js              # Main application component
-│   │   ├── App.css             # Styles and animations
-│   │   └── index.js            # React entry point
+│   │   ├── App.js                     # Componente principal
+│   │   ├── App.css                    # Estilos globales
+│   │   ├── index.js                   # Entry point React
+│   │   ├── components/
+│   │   │   ├── WeatherForm.jsx        # Formulario multi-paso
+│   │   │   └── WeatherResults.jsx     # Visualización resultados
+│   │   ├── context/
+│   │   │   └── ThemeContext.jsx       # Sistema de temas
+│   │   └── utils/
+│   │       └── geocoding.js           # Utilidades
 │   ├── public/
-│   │   └── index.html          # HTML template
-│   ├── backup/
-│   │   └── index-original.html # Original HTML design
-│   └── package.json            # Frontend dependencies
-├── backend/
-│   └── api.py                  # FastAPI backend server
-├── app.py                      # Original Streamlit MVP (legacy)
-├── logic.py                    # Core business logic (REUSABLE MODULE)
-├── mock_data.csv              # Mock historical weather data (5 years, 4 months)
-├── requirements.txt           # Backend dependencies
-├── START_HERE.md             # Quick start guide
-└── README.md                 # Project documentation
+│   │   └── index.html                 # HTML base
+│   └── package.json                   # Dependencias npm
+│
+├── scripts/                           # Scripts de desarrollo
+│   ├── demo_gemini_plan_b.py          # Demo de IA
+│   └── setup_gemini.py                # Setup Gemini API
+│
+├── config_example.env                 # Ejemplo de configuración
+├── requirements.txt                   # Instrucciones instalación
+├── README.md                          # Documentación principal
+├── ARCHITECTURE.md                    # Arquitectura técnica
+└── START_HERE.md                      # Guía de inicio rápido
 ```
 
 ## 🛠️ Installation & Setup
@@ -64,7 +78,7 @@ cd NASA-Will-It-Rain-On-My-Parade-
 
 #### Step 2: Install Backend Dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 #### Step 2.5: Configure Gemini AI (Optional)
@@ -72,7 +86,7 @@ For AI-powered Plan B generation, you can optionally configure Gemini AI:
 
 **Option A: Automated Setup (Recommended)**
 ```bash
-python setup_gemini.py
+python scripts/setup_gemini.py
 ```
 
 **Option B: Manual Setup**
@@ -93,7 +107,7 @@ python setup_gemini.py
 
 **Test Gemini AI Integration:**
 ```bash
-python test_gemini_plan_b.py
+python backend/tests/test_gemini_plan_b.py
 ```
 
 **Note**: The system works perfectly without Gemini AI using intelligent fallback alternatives.
@@ -127,10 +141,6 @@ cd frontend
 npm start
 ```
 
-**Option B: Legacy Streamlit Version**
-```bash
-streamlit run app.py
-```
 
 #### Step 5: Access the Application
 
@@ -140,8 +150,6 @@ streamlit run app.py
 - 📚 **API Documentation**: http://localhost:8000/docs
 - ❤️ **Health Check**: http://localhost:8000/health
 
-**Legacy Version (Streamlit):**
-- 🌐 **Dashboard**: http://localhost:8501
 
 ### 🚀 Complete Command Sequence
 
@@ -153,7 +161,7 @@ git clone <repository-url>
 cd NASA-Will-It-Rain-On-My-Parade-
 
 # 2. Install Python dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
 # 3. Install Node.js dependencies
 cd frontend
@@ -202,17 +210,6 @@ npm test
 npm install <package-name>
 ```
 
-**Legacy Streamlit Commands:**
-```bash
-# Run Streamlit app
-streamlit run app.py
-
-# Run with specific port
-streamlit run app.py --server.port 8501
-
-# Run headless (no browser)
-streamlit run app.py --server.headless true
-```
 
 ### 🐛 Troubleshooting
 
@@ -230,7 +227,7 @@ streamlit run app.py --server.headless true
 2. **Python dependencies not found:**
    ```bash
    pip install --upgrade pip
-   pip install -r requirements.txt --force-reinstall
+   pip install -r backend/requirements.txt --force-reinstall
    ```
 
 3. **Node modules issues:**
@@ -299,17 +296,20 @@ curl http://localhost:8000/health
 - **GET /docs**: Automatic API documentation
 - **Error Handling**: Comprehensive error responses
 
-#### `logic.py` - REUSABLE MODULE
-- `load_historical_data()`: Data loading with error handling
-- `calculate_adverse_probability()`: Risk calculation engine
+#### `backend/logic.py` - Core Logic Module
+- `load_historical_data()`: NASA POWER API integration
+- `calculate_adverse_probability()`: Temperature risk calculation
+- `calculate_precipitation_risk()`: Precipitation risk calculation
+- `calculate_cold_risk()`: Cold weather risk calculation
+- `generate_plan_b_with_gemini()`: AI-powered Plan B generation
 - **Multi-variable Support**: Temperature and precipitation analysis
 
-#### `mock_data.csv` - Mock Historical Data
+#### `backend/mock_data.csv` - Fallback Data
+- **Fallback data** when NASA POWER API is unavailable
 - **5 years** of simulated data (2020-2024)
 - **4 months** coverage (January-April)
 - **Dual Variables**: Temperature and precipitation data
-- **Montevideo Focus**: Realistic mock data for Uruguay region
-- **Purpose**: MVP demonstration with scientifically valid methodology
+- **Purpose**: Ensure system reliability
 
 ## 🔬 Scientific Methodology
 
