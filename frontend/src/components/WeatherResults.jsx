@@ -51,49 +51,47 @@ const WeatherResults = ({ data, isNightMode }) => {
     const precipRisk = precipitation_risk.probability;
     const coldRiskValue = cold_risk.probability;
     
-    // Map weather conditions to actual risk data
-    weatherConditions.forEach(c => {
-      if (c === 'hot') {
-        totalPercentage += tempRisk;
-        summaryParts.push('hot weather');
-        adviceParts.push(temperature_risk.status_message);
-      } else if (c === 'wet') {
-        totalPercentage += precipRisk;
-        summaryParts.push('rainy weather');
-        adviceParts.push(precipitation_risk.status_message);
-      } else if (c === 'cold') {
-        // Use real cold risk data from backend
-        totalPercentage += coldRiskValue;
-        summaryParts.push('cold weather');
-        adviceParts.push(cold_risk.status_message);
-      } else {
-        // Fallback to mock data for other conditions
-        const conditionData = mockData[c];
-        totalPercentage += conditionData.percentage;
-        summaryParts.push(conditionData.text);
-        adviceParts.push(conditionData.advice);
-      }
-      
-      emojis += {wet:'🌧️', hot:'🔥', cold:'❄️', windy:'💨', uncomfortable:'🥵', uv:'☀️'}[c];
-    });
+    // Map weather condition to actual risk data
+    const c = weatherConditions;
+    if (c === 'hot') {
+      totalPercentage += tempRisk;
+      summaryParts.push('hot weather');
+      adviceParts.push(temperature_risk.status_message);
+    } else if (c === 'wet') {
+      totalPercentage += precipRisk;
+      summaryParts.push('rainy weather');
+      adviceParts.push(precipitation_risk.status_message);
+    } else if (c === 'cold') {
+      // Use real cold risk data from backend
+      totalPercentage += coldRiskValue;
+      summaryParts.push('cold weather');
+      adviceParts.push(cold_risk.status_message);
+    } else {
+      // Fallback to mock data for other conditions
+      const conditionData = mockData[c];
+      totalPercentage += conditionData.percentage;
+      summaryParts.push(conditionData.text);
+      adviceParts.push(conditionData.advice);
+    }
+    
+    emojis += {wet:'🌧️', hot:'🔥', cold:'❄️', windy:'💨', uncomfortable:'🥵', uv:'☀️'}[c];
     
     // Use historical data from API if available
     totalPastPercentage = totalPercentage * 0.8; // Rough estimate for past data
   } else {
     console.log('WeatherResults - Using mock data fallback');
     // Fallback to mock data
-    weatherConditions.forEach(c => {
-      const conditionData = mockData[c];
-      totalPercentage += conditionData.percentage;
-      totalPastPercentage += conditionData.pastPercentage;
-      emojis += {wet:'🌧️', hot:'🔥', cold:'❄️', windy:'💨', uncomfortable:'🥵', uv:'☀️'}[c];
-      summaryParts.push(conditionData.text);
-      adviceParts.push(conditionData.advice);
-    });
+    const c = weatherConditions;
+    const conditionData = mockData[c];
+    totalPercentage += conditionData.percentage;
+    totalPastPercentage += conditionData.pastPercentage;
+    emojis += {wet:'🌧️', hot:'🔥', cold:'❄️', windy:'💨', uncomfortable:'🥵', uv:'☀️'}[c];
+    summaryParts.push(conditionData.text);
+    adviceParts.push(conditionData.advice);
   }
 
-  const avgPercentage = totalPercentage / weatherConditions.length;
-  const avgPastPercentage = totalPastPercentage / weatherConditions.length;
+  const avgPercentage = totalPercentage;
+  const avgPastPercentage = totalPastPercentage;
   
   // Determine risk level with NASA colors and proper contrast
   let riskLevel, riskColorStyle;
@@ -184,12 +182,12 @@ const WeatherResults = ({ data, isNightMode }) => {
     }
   };
 
-  const suggestActivities = (conditions) => {
+  const suggestActivities = (condition) => {
     let suggestions = [];
-    if (!conditions.includes('wet') && !conditions.includes('cold') && !conditions.includes('windy')) suggestions.push('🧺');
-    if (!conditions.includes('wet') && !conditions.includes('cold')) suggestions.push('🏖️');
-    if (!conditions.includes('hot') && !conditions.includes('wet')) suggestions.push('🏃‍♂️', '⛰️');
-    if (conditions.includes('windy') && !conditions.includes('wet')) suggestions.push('⛵');
+    if (condition !== 'wet' && condition !== 'cold' && condition !== 'windy') suggestions.push('🧺');
+    if (condition !== 'wet' && condition !== 'cold') suggestions.push('🏖️');
+    if (condition !== 'hot' && condition !== 'wet') suggestions.push('🏃‍♂️', '⛰️');
+    if (condition === 'windy' && condition !== 'wet') suggestions.push('⛵');
     if(suggestions.length === 0) return ['🏠'];
     return suggestions;
   };
@@ -270,24 +268,24 @@ const WeatherResults = ({ data, isNightMode }) => {
   };
 
   // Dynamic Plan B generation based on weather conditions
-  const generateDynamicPlanB = (conditions, originalActivity) => {
+  const generateDynamicPlanB = (condition, originalActivity) => {
     const planBOptions = [];
     
-    if (conditions.includes('wet') || conditions.includes('cold')) {
+    if (condition === 'wet' || condition === 'cold') {
       planBOptions.push(
         { activityName: "Museum Visit", recommendation: "Perfect indoor activity when weather is challenging. Explore art and culture." },
         { activityName: "Library Reading", recommendation: "Cozy indoor space to enjoy books while staying warm and dry." }
       );
     }
     
-    if (conditions.includes('hot') || conditions.includes('uv')) {
+    if (condition === 'hot' || condition === 'uv') {
       planBOptions.push(
         { activityName: "Shopping Mall", recommendation: "Air-conditioned environment perfect for hot days. Shop and stay cool." },
         { activityName: "Indoor Cinema", recommendation: "Entertainment in a climate-controlled space away from the heat." }
       );
     }
     
-    if (conditions.includes('windy')) {
+    if (condition === 'windy') {
       planBOptions.push(
         { activityName: "Indoor Sports", recommendation: "Gym or sports center activities that aren't affected by wind." },
         { activityName: "Art Gallery", recommendation: "Cultural experience in a protected indoor environment." }

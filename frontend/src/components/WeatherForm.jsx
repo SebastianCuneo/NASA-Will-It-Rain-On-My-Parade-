@@ -110,9 +110,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const toggleWeatherCondition = (conditionId) => {
     setFormData(prev => ({
       ...prev,
-      weatherConditions: prev.weatherConditions.includes(conditionId)
-        ? prev.weatherConditions.filter(id => id !== conditionId)
-        : [...prev.weatherConditions, conditionId]
+      weatherConditions: prev.weatherConditions === conditionId ? null : conditionId
     }));
   };
 
@@ -137,7 +135,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       latitude: parseFloat(lat), // Asegurar que es un número flotante
       longitude: parseFloat(lon), // Asegurar que es un número flotante
       event_date: formData.date,
-      adverse_condition: formData.weatherConditions[0] || 'hot' // Send first selected condition
+      adverse_condition: formData.weatherConditions || 'hot' // Send selected condition
     };
     
     // Debugging: Log payload before sending
@@ -265,7 +263,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
             <div
               key={option.id}
               className={`selectable-option weather-option flex flex-col items-center justify-center p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer transition-all duration-200 aspect-square hover:scale-105 ${
-                formData.weatherConditions.includes(option.id) ? 'selected' : ''
+                formData.weatherConditions === option.id ? 'selected' : ''
               }`}
               onClick={() => toggleWeatherCondition(option.id)}
             >

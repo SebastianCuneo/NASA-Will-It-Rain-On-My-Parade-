@@ -14,7 +14,7 @@ function App() {
   const [formData, setFormData] = useState({
     location: 'Montevideo',
     date: new Date().toISOString().split('T')[0],
-    weatherConditions: ['wet', 'hot'],
+    weatherConditions: null,
     activity: null
   });
   const [results, setResults] = useState(null);
@@ -63,8 +63,8 @@ function App() {
   };
 
   const handleFormSubmit = async (data) => {
-    if (data.weatherConditions.length === 0) {
-    showTemporaryMessage('Por favor, selecciona al menos una condición climática.', 'error');
+    if (!data.weatherConditions) {
+    showTemporaryMessage('Por favor, selecciona una condición climática.', 'error');
      return;
      }
     
@@ -78,7 +78,7 @@ function App() {
      latitude: data.latitude,  // Use coordinates from form
      longitude: data.longitude,
      event_date: data.event_date,  // Send date as string
-     adverse_condition: data.weatherConditions[0] || 'Very Hot'  // Send first selected condition
+     adverse_condition: data.weatherConditions || 'hot'  // Send selected condition
        };
     
     // Debugging: Log API payload
