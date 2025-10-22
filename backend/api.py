@@ -266,14 +266,31 @@ async def get_visualizations_only(request: RiskRequest):
     try:
         print(f'Visualizations endpoint received: Lat={request.latitude}, Lon={request.longitude}, Date={request.event_date}, Condition={request.adverse_condition}')
         
-        # Crear datos de prueba
-        years = list(range(2020, 2025))
-        historical_data = pd.DataFrame({
-            'Year': years,
-            'Month': [3] * len(years),
-            'Max_Temperature_C': [25.5, 26.2, 27.1, 28.3, 29.0],
-            'Precipitation_mm': [5.2, 3.8, 4.1, 6.7, 2.3]
-        })
+        # Intentar cargar datos históricos reales basados en las coordenadas
+        historical_data = load_historical_data(request.latitude, request.longitude)
+        
+        # Si no hay datos históricos, usar datos de prueba con variación basada en coordenadas
+        if historical_data.empty:
+            print("No historical data available, using test data with coordinate-based variation")
+            years = list(range(2020, 2025))
+            
+            # Crear variación basada en las coordenadas para simular diferentes ubicaciones
+            lat_factor = abs(request.latitude) / 90.0  # Factor basado en latitud
+            lon_factor = abs(request.longitude) / 180.0  # Factor basado en longitud
+            
+            # Temperaturas base que varían según la ubicación
+            base_temp = 20.0 + (lat_factor * 15.0)  # Más cálido hacia el ecuador
+            temp_variation = 1.0 + (lon_factor * 2.0)  # Variación según longitud
+            
+            historical_data = pd.DataFrame({
+                'Year': years,
+                'Month': [3] * len(years),
+                'Max_Temperature_C': [base_temp + (i * temp_variation) for i in range(len(years))],
+                'Precipitation_mm': [5.2 + (i * 0.5) for i in range(len(years))]
+            })
+            
+            print(f"Using coordinate-based test data: Lat={request.latitude}, Lon={request.longitude}")
+            print(f"Base temperature: {base_temp:.1f}°C, Variation: {temp_variation:.1f}")
 
         # Generar visualizaciones
         print("Generating visualizations...")
