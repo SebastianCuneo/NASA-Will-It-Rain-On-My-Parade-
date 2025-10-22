@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import time
 import os
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
 # Import Gemini AI
 try:
@@ -21,6 +24,121 @@ except ImportError:
     GEMINI_AVAILABLE = False
     print("Warning: google-generativeai not installed. Plan B generation will be disabled.")
 
+def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Calcula el Percentil 90 (P90) de la temperatura máxima para cada año y genera los datos necesarios para los gráficos de Plotly.
+    Implementa granularidad correcta para datos de la NASA API.
+    
+    Args:
+        historical_data: DataFrame con datos históricos de temperatura.
+        
+    Returns:
+        Dict: Contiene 'plot_data' (P90 por año) y 'climate_trend' (resumen).
+    """
+    if historical_data.empty:
+        return {
+            "plot_data": [],
+            "climate_trend": "No se encontraron datos históricos suficientes para realizar el análisis de tendencia climática (P90 anual)."
+        }
+    
+    # Filtrar datos válidos (NASA usa -999 para datos faltantes)
+    valid_data = historical_data[historical_data['Max_Temperature_C'] > -100].copy()
+    
+    if valid_data.empty:
+        return {
+            "plot_data": [],
+            "climate_trend": "No se encontraron datos de temperatura válidos para el análisis P90."
+        }
+    
+    # Calcular P90 por año con granularidad correcta
+    # Agrupar por año y calcular el percentil 90 de las temperaturas máximas diarias
+    p90_by_year = valid_data.groupby('Year')['Max_Temperature_C'].quantile(0.90).reset_index()
+    p90_by_year.rename(columns={'Max_Temperature_C': 'P90_Max_Temp'}, inplace=True)
+    
+    # Calcular también estadísticas adicionales para mejor visualización
+    stats_by_year = valid_data.groupby('Year')['Max_Temperature_C'].agg([
+        'mean', 'max', 'min', 'std'
+    ]).reset_index()
+    stats_by_year.columns = ['Year', 'Mean_Temp', 'Max_Temp', 'Min_Temp', 'Std_Temp']
+    
+    # Combinar datos P90 con estadísticas
+    plot_data = p90_by_year.merge(stats_by_year, on='Year', how='left')
+    plot_data = plot_data.to_dict('records')
+    
+    # Análisis de tendencias climáticas
+    if len(p90_by_year) >= 2:
+        # Calcular la diferencia entre el P90 del último año y el primer año
+        start_p90 = p90_by_year.iloc[0]['P90_Max_Temp']
+        end_p90 = p90_by_year.iloc[-1]['P90_Max_Temp']
+        trend_diff = end_p90 - start_p90
+        
+        start_year = p90_by_year.iloc[0]['Year']
+        end_year = p90_by_year.iloc[-1]['Year']
+        
+        # Calcular tendencia de la media también
+        start_mean = stats_by_year.iloc[0]['Mean_Temp']
+        end_mean = stats_by_year.iloc[-1]['Mean_Temp']
+        mean_trend_diff = end_mean - start_mean
+        
+        if trend_diff > 1.0:
+            trend_summary = f"ALARMA: El umbral de calor extremo (P90) ha aumentado en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media también aumentó {mean_trend_diff:.2f}°C. Esto sugiere una clara tendencia al aumento de temperaturas extremas."
+        elif trend_diff > 0.3:
+            trend_summary = f"Advertencia: El umbral de calor extremo (P90) ha aumentado ligeramente en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C. Se recomienda monitoreo continuo."
+        else:
+            trend_summary = f"Estable: El umbral de calor extremo (P90) se ha mantenido relativamente estable, con una variación de {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C."
+    else:
+        trend_summary = "Datos insuficientes (menos de 2 años) para calcular una tendencia climática anual significativa."
+
+    return {
+        "plot_data": plot_data,
+        "climate_trend": trend_summary
+    }
+
+
+def load_historical_data_by_date(lat: float, lon: float, date_str: str) -> pd.DataFrame:
+    """
+    Carga los datos históricos del mes de interés.
+
+    Args:
+        lat: Latitud.
+        lon: Longitud.
+        date_str: Fecha en formato YYYY-MM-DD.
+        
+    Returns:
+        pd.DataFrame: DataFrame de Pandas con datos históricos del mes.
+    """
+    try:
+        # Extraer el mes
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        month = date_obj.month
+        
+        print(f"FastAPI Processing: Month={month}")
+        
+        # 1. Llamar a la función de obtención de datos (asumiendo 20 años de historia)
+        start_year = 2005
+        end_year = date_obj.year # Hasta el año actual
+        print(f"Fetching NASA POWER data for coordinates ({lat}, {lon}) from {start_year} to {end_year}")
+
+        # La función fetch_nasa_power_data debe retornar un DF en caso de éxito
+        historical_data_full = fetch_nasa_power_data(lat, lon, start_year, end_year)
+        
+        if historical_data_full.empty:
+             print("NASA POWER API returned empty DataFrame.")
+             return pd.DataFrame() # Devuelve un DF vacío si no hay datos
+
+        # 2. Filtrar los datos solo para el mes de interés
+        monthly_data = historical_data_full[historical_data_full['Month'] == month]
+
+        if monthly_data.empty:
+            print(f"Error in load_historical_data: No data found for month {month}")
+            return pd.DataFrame() # Devuelve un DF vacío si no hay datos para ese mes
+        
+        return monthly_data
+        
+    except Exception as e:
+        print(f"FastAPI Error in Load: {str(e)}")
+        # Define las columnas para que api.py sepa que es un DataFrame
+        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
 
 def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int) -> pd.DataFrame:
     """
@@ -138,21 +256,22 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         print(f"Fatal Error fetching or processing NASA POWER data: {str(e)}")
         # Ya no lanzamos 'raise Exception', devolvemos el DF vacío para que el código que llama no falle.
         return empty_df
-def load_historical_data(month_filter: int, lat: float = -34.90, lon: float = -56.16) -> Dict[str, Any]:
+def load_historical_data(lat: float, lon: float, date_str: str) -> Dict[str, Any]:
     """
     Load and filter historical data by month using NASA POWER API
     
     Args:
-        month_filter: Month to filter (1-12)
-        lat: Latitude coordinate (default: Montevideo)
-        lon: Longitude coordinate (default: Montevideo)
+        lat: Latitude coordinate
+        lon: Longitude coordinate
+        date_str: Date string in YYYY-MM-DD format
         
     Returns:
         Dict: Dictionary containing the filtered DataFrame and the climate trend analysis.
     """
     try:
-        if not isinstance(month_filter, int) or month_filter < 1 or month_filter > 12:
-            raise ValueError("Month must be between 1 and 12")
+        # Extract month from date string
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        month_filter = date_obj.month
         
         # Validate coordinates
         if not (-90 <= lat <= 90):
@@ -966,7 +1085,7 @@ def verify_data_source(month: int = 3):
         
         # Calculate risk with real data
         print(f"\n5. Analisis de riesgo con datos reales:")
-        risk_analysis = calculate_adverse_probability(monthly_data)
+        risk_analysis = calculate_adverse_probability(monthly_data, {'Temp': 30.0, 'Condition': 'wet'})
         print(f"   Nivel de riesgo: {risk_analysis['risk_level']}")
         print(f"   Probabilidad: {risk_analysis['probability']:.1f}%")
         print(f"   Umbral: {risk_analysis['risk_threshold']:.1f}C")
@@ -980,6 +1099,391 @@ def verify_data_source(month: int = 3):
     except Exception as e:
         print(f"Error en verificacion: {str(e)}")
         return False
+
+
+def create_p90_trend_chart(plot_data: list) -> Dict[str, Any]:
+    """
+    Crea el primer gráfico: Línea de tendencia del P90 a lo largo de los años
+    
+    Args:
+        plot_data: Lista de diccionarios con datos P90 por año
+        
+    Returns:
+        Dict: Configuración del gráfico Plotly
+    """
+    if not plot_data:
+        return {"error": "No data available for P90 trend chart"}
+    
+    df = pd.DataFrame(plot_data)
+    
+    # Crear gráfico de línea con P90
+    fig = go.Figure()
+    
+    # Línea principal del P90
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=df['P90_Max_Temp'],
+        mode='lines+markers',
+        name='P90 Temperatura Máxima',
+        line=dict(color='red', width=3),
+        marker=dict(size=8, color='red'),
+        hovertemplate='<b>Año:</b> %{x}<br><b>P90:</b> %{y:.1f}°C<extra></extra>'
+    ))
+    
+    # Línea de la media para comparación
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=df['Mean_Temp'],
+        mode='lines+markers',
+        name='Temperatura Media',
+        line=dict(color='blue', width=2, dash='dash'),
+        marker=dict(size=6, color='blue'),
+        hovertemplate='<b>Año:</b> %{x}<br><b>Media:</b> %{y:.1f}°C<extra></extra>'
+    ))
+    
+    # Calcular línea de tendencia
+    if len(df) > 1:
+        z = np.polyfit(df['Year'], df['P90_Max_Temp'], 1)
+        p = np.poly1d(z)
+        trend_line = p(df['Year'])
+        
+        fig.add_trace(go.Scatter(
+            x=df['Year'],
+            y=trend_line,
+            mode='lines',
+            name='Tendencia P90',
+            line=dict(color='orange', width=2, dash='dot'),
+            hovertemplate='<b>Año:</b> %{x}<br><b>Tendencia:</b> %{y:.1f}°C<extra></extra>'
+        ))
+    
+    # Configurar layout
+    fig.update_layout(
+        title=None,  # Remover título interno
+        xaxis_title='Año',
+        yaxis_title='Temperatura (°C)',
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=9)  # Fuente más pequeña
+        ),
+        template='plotly_white',
+        height=300,
+        width=400,
+        margin=dict(l=40, r=40, t=20, b=40),  # Más espacio en los lados, menos arriba
+        autosize=False
+    )
+    
+    return {
+        "chart_type": "p90_trend",
+        "figure": fig.to_dict(),
+        "description": "Gráfico de línea que muestra la evolución del P90 de temperatura máxima a lo largo de los años"
+    }
+
+
+def create_climate_comparison_chart(plot_data: list) -> Dict[str, Any]:
+    """
+    Crea el segundo gráfico: Comparación histórica vs actual con barras y líneas
+    
+    Args:
+        plot_data: Lista de diccionarios con datos P90 por año
+        
+    Returns:
+        Dict: Configuración del gráfico Plotly
+    """
+    if not plot_data:
+        return {"error": "No data available for climate comparison chart"}
+    
+    df = pd.DataFrame(plot_data)
+    
+    # Crear subplot con ejes secundarios
+    fig = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=('P90 vs Temperatura Máxima por Año', 'Rango de Temperaturas'),
+        vertical_spacing=0.15,  # Más espacio entre subplots
+        specs=[[{"secondary_y": False}], [{"secondary_y": False}]]
+    )
+    
+    # Gráfico 1: P90 vs Max Temp
+    fig.add_trace(
+        go.Bar(
+            x=df['Year'],
+            y=df['P90_Max_Temp'],
+            name='P90 Temperatura',
+            marker_color='lightcoral',
+            hovertemplate='<b>Año:</b> %{x}<br><b>P90:</b> %{y:.1f}°C<extra></extra>'
+        ),
+        row=1, col=1
+    )
+    
+    fig.add_trace(
+        go.Scatter(
+            x=df['Year'],
+            y=df['Max_Temp'],
+            mode='lines+markers',
+            name='Temperatura Máxima',
+            line=dict(color='darkred', width=3),
+            marker=dict(size=8),
+            hovertemplate='<b>Año:</b> %{x}<br><b>Máxima:</b> %{y:.1f}°C<extra></extra>'
+        ),
+        row=1, col=1
+    )
+    
+    # Gráfico 2: Rango de temperaturas (Min, Mean, Max)
+    fig.add_trace(
+        go.Scatter(
+            x=df['Year'],
+            y=df['Min_Temp'],
+            mode='lines+markers',
+            name='Temperatura Mínima',
+            line=dict(color='lightblue', width=2),
+            marker=dict(size=6),
+            hovertemplate='<b>Año:</b> %{x}<br><b>Mínima:</b> %{y:.1f}°C<extra></extra>'
+        ),
+        row=2, col=1
+    )
+    
+    fig.add_trace(
+        go.Scatter(
+            x=df['Year'],
+            y=df['Mean_Temp'],
+            mode='lines+markers',
+            name='Temperatura Media',
+            line=dict(color='blue', width=3),
+            marker=dict(size=8),
+            hovertemplate='<b>Año:</b> %{x}<br><b>Media:</b> %{y:.1f}°C<extra></extra>'
+        ),
+        row=2, col=1
+    )
+    
+    fig.add_trace(
+        go.Scatter(
+            x=df['Year'],
+            y=df['Max_Temp'],
+            mode='lines+markers',
+            name='Temperatura Máxima',
+            line=dict(color='red', width=3),
+            marker=dict(size=8),
+            hovertemplate='<b>Año:</b> %{x}<br><b>Máxima:</b> %{y:.1f}°C<extra></extra>'
+        ),
+        row=2, col=1
+    )
+    
+    # Configurar layout
+    fig.update_layout(
+        title=None,  # Remover título interno
+        height=280,  # Achicar más para que se vea completa
+        width=400,
+        template='plotly_white',
+        hovermode='x unified',
+        margin=dict(l=40, r=40, t=20, b=40),  # Más espacio en los lados, menos arriba
+        autosize=False,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=1,
+            xanchor="left",
+            x=1.02,
+            font=dict(size=9)  # Fuente más pequeña
+        )
+    )
+    
+    # Configurar ejes
+    fig.update_xaxes(title_text="Año", row=2, col=1)
+    fig.update_yaxes(title_text="Temperatura (°C)", row=1, col=1)
+    fig.update_yaxes(title_text="Temperatura (°C)", row=2, col=1)
+    
+    return {
+        "chart_type": "climate_comparison",
+        "figure": fig.to_dict(),
+        "description": "Gráfico comparativo que muestra P90 vs temperaturas históricas y rangos de temperatura"
+    }
+
+
+def create_heat_risk_analysis_chart(plot_data: list) -> Dict[str, Any]:
+    """
+    Crea el tercer gráfico: Análisis de riesgo de calor con áreas y umbrales
+    
+    Args:
+        plot_data: Lista de diccionarios con datos P90 por año
+        
+    Returns:
+        Dict: Configuración del gráfico Plotly
+    """
+    if not plot_data:
+        return {"error": "No data available for heat risk analysis chart"}
+    
+    df = pd.DataFrame(plot_data)
+    
+    # Definir umbrales de riesgo
+    risk_thresholds = {
+        'low_risk': 25,      # Bajo riesgo
+        'moderate_risk': 30, # Riesgo moderado
+        'high_risk': 35,     # Alto riesgo
+        'extreme_risk': 40   # Riesgo extremo
+    }
+    
+    fig = go.Figure()
+    
+    # Áreas de riesgo
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=[risk_thresholds['extreme_risk']] * len(df),
+        fill=None,
+        mode='lines',
+        line_color='rgba(0,0,0,0)',
+        showlegend=False,
+        hoverinfo='skip'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=[risk_thresholds['high_risk']] * len(df),
+        fill='tonexty',
+        mode='lines',
+        line_color='rgba(0,0,0,0)',
+        fillcolor='rgba(255,0,0,0.3)',
+        name='Riesgo Extremo (>40°C)',
+        hoverinfo='skip'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=[risk_thresholds['moderate_risk']] * len(df),
+        fill='tonexty',
+        mode='lines',
+        line_color='rgba(0,0,0,0)',
+        fillcolor='rgba(255,165,0,0.3)',
+        name='Riesgo Alto (30-40°C)',
+        hoverinfo='skip'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=[risk_thresholds['low_risk']] * len(df),
+        fill='tonexty',
+        mode='lines',
+        line_color='rgba(0,0,0,0)',
+        fillcolor='rgba(255,255,0,0.3)',
+        name='Riesgo Moderado (25-30°C)',
+        hoverinfo='skip'
+    ))
+    
+    # Líneas de datos principales
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=df['P90_Max_Temp'],
+        mode='lines+markers',
+        name='P90 Temperatura',
+        line=dict(color='red', width=4),
+        marker=dict(size=10, color='red'),
+        hovertemplate='<b>Año:</b> %{x}<br><b>P90:</b> %{y:.1f}°C<extra></extra>'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Year'],
+        y=df['Max_Temp'],
+        mode='lines+markers',
+        name='Temperatura Máxima',
+        line=dict(color='darkred', width=3, dash='dash'),
+        marker=dict(size=8, color='darkred'),
+        hovertemplate='<b>Año:</b> %{x}<br><b>Máxima:</b> %{y:.1f}°C<extra></extra>'
+    ))
+    
+    # Líneas de umbral
+    for threshold_name, threshold_value in risk_thresholds.items():
+        fig.add_hline(
+            y=threshold_value,
+            line_dash="dash",
+            line_color="gray",
+            annotation_text=f"Umbral {threshold_name.replace('_', ' ').title()}: {threshold_value}°C",
+            annotation_position="top right"
+        )
+    
+    # Configurar layout
+    fig.update_layout(
+        title=None,  # Remover título interno
+        xaxis_title='Año',
+        yaxis_title='Temperatura (°C)',
+        hovermode='x unified',
+        template='plotly_white',
+        height=320,
+        width=400,
+        margin=dict(l=40, r=40, t=20, b=40),  # Más espacio en los lados, menos arriba
+        autosize=False,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=1,
+            xanchor="left",
+            x=1.02,
+            font=dict(size=9)  # Fuente más pequeña
+        )
+    )
+    
+    return {
+        "chart_type": "heat_risk_analysis",
+        "figure": fig.to_dict(),
+        "description": "Gráfico de análisis de riesgo que muestra P90 vs umbrales de riesgo de calor con áreas coloreadas"
+    }
+
+
+def generate_plotly_visualizations(historical_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Genera los 3 gráficos interactivos Plotly para visualización P90 y comparación histórica
+    
+    Args:
+        historical_data: DataFrame con datos históricos
+        
+    Returns:
+        Dict: Diccionario con los 3 gráficos generados
+    """
+    try:
+        # Obtener datos para los gráficos
+        climate_data = get_climate_trend_data(historical_data)
+        plot_data = climate_data.get('plot_data', [])
+        
+        if not plot_data:
+            return {
+                "error": "No data available for visualization",
+                "charts": []
+            }
+        
+        # Generar los 3 gráficos
+        charts = []
+        
+        # Gráfico 1: Tendencia P90
+        chart1 = create_p90_trend_chart(plot_data)
+        if "error" not in chart1:
+            charts.append(chart1)
+        
+        # Gráfico 2: Comparación climática
+        chart2 = create_climate_comparison_chart(plot_data)
+        if "error" not in chart2:
+            charts.append(chart2)
+        
+        # Gráfico 3: Análisis de riesgo
+        chart3 = create_heat_risk_analysis_chart(plot_data)
+        if "error" not in chart3:
+            charts.append(chart3)
+        
+        return {
+            "success": True,
+            "charts": charts,
+            "climate_trend": climate_data.get('climate_trend', ''),
+            "data_points": len(plot_data),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error generating visualizations: {str(e)}",
+            "charts": []
+        }
 
 
 if __name__ == "__main__":
