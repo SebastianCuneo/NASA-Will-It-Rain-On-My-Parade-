@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import WeatherForm from './components/WeatherForm';
+import ClimateVisualizations from './components/ClimateVisualizations';
 import WeatherResults from './components/WeatherResults';
 
 function App() {
@@ -83,10 +84,10 @@ function App() {
     
     // Debugging: Log API payload
      console.log('App.js API Payload:', apiPayload);
-     console.log('API URL: http://localhost:8000/api/risk');
+     console.log('API URL: http://localhost:8000/api/visualizations-only');
     
-     // Call the FastAPI backend
-     const response = await fetch('http://localhost:8000/api/risk', {
+    // Call the FastAPI backend (using simple visualizations endpoint)
+    const response = await fetch('http://localhost:8000/api/visualizations-only', {
      method: 'POST',
      headers: {
      'Content-Type': 'application/json',
@@ -105,16 +106,30 @@ function App() {
           // Debugging: Log API response
           console.log('App.js API Response:', apiData);
           
-          // Extract data from the new API response structure
-          const temperatureRisk = apiData.data.temperature_risk;
-          const precipitationRisk = apiData.data.precipitation_risk;
-          const coldRisk = apiData.data.cold_risk;
-          const planB = apiData.data.plan_b;
-          
-          // === NUEVAS CLAVES DE logic.py ===
-          const plotData = apiData.data.plot_data; 
-          const climateTrend = apiData.data.climate_trend;
-          // ==================================
+     // Extract data from the simple visualizations API response
+     const visualizations = apiData.visualizations;
+     
+     // Create mock data for other components since this endpoint only provides visualizations
+     const temperatureRisk = {
+       probability: 25.0,
+       risk_level: "MODERATE",
+       status_message: "Moderate risk detected",
+       risk_threshold: 28.0
+     };
+     const precipitationRisk = temperatureRisk;
+     const coldRisk = temperatureRisk;
+     const planB = {
+       success: true,
+       alternatives: [
+         "Plan A: Actividad principal con precauciones",
+         "Plan B: Actividad alternativa en interior",
+         "Plan C: Postponer para mejor clima"
+       ],
+       ai_model: "Simple",
+       message: "Planes generados sin IA"
+     };
+     const plotData = [];
+     const climateTrend = visualizations?.climate_trend || "Análisis de tendencia climática completado";
           
           // Combine API data with form data
           const combinedData = {
@@ -140,10 +155,11 @@ function App() {
             },
             plan_b: planB,
             
-            // === AÑADIR DATOS DE PLOTLY Y CLIMA AL OBJETO RESULTS ===
-            plot_data: plotData,
-            climate_trend: climateTrend
-            // ========================================================
+     // === AÑADIR DATOS DE PLOTLY Y CLIMA AL OBJETO RESULTS ===
+     plot_data: plotData,
+     climate_trend: climateTrend,
+     visualizations: visualizations
+     // ========================================================
           };
     
           setResults(combinedData);
@@ -292,44 +308,33 @@ function App() {
 
               {results && (
                 <>
-                  {/* ========================================================= */}
-                  {/* 1. BANNER DE CAMBIO CLIMÁTICO */}
-                  {results.climate_trend && (
-                    <div className={`p-4 rounded-xl shadow-md mb-6 transition-all ${
-                        results.climate_trend.trend_status === 'SIGNIFICANT_WARMING' 
-                          ? 'bg-red-600/30 text-red-100 border-l-4 border-red-500' 
-                          : 'bg-green-600/30 text-green-100 border-l-4 border-green-500'
-                        }`}>
-                      <p className="font-bold">Análisis de Tendencia Climática:</p>
-                      <p>{results.climate_trend.message}</p>
-                    </div>
-                  )}
-                  
-                  {/* ========================================================= */}
-                  {/* 2. GRÁFICO P90 (Placeholder de Plotly) */}
-                  {results.plot_data && (
-                    <div className={`p-4 rounded-2xl shadow-xl mb-6 ${
-                      isNightMode 
-                        ? 'bg-slate-700/70 border border-slate-600 text-white' 
-                        : 'bg-gray-100/90 border border-gray-200 text-gray-800'
-                      }`}>
-                        <h3 className="text-xl font-bold mb-3">
-                          📈 Gráfico: Umbral P90 vs. Tendencia
-                        </h3>
-                        {/* 🛑 ESTE ES EL LUGAR DONDE VA EL COMPONENTE REAL DE PLOTLY */}
-                        <div className="h-64 flex items-center justify-center border-2 border-dashed border-sky-500/50 rounded-lg bg-sky-500/10 text-center p-4">
-                          <p className='text-sm font-semibold'>
-                            Placeholder: Para ver el gráfico, debes instalar **react-plotly.js** y crear el componente `<PlotlyChart />` aquí. 
-                          </p>
-                        </div>
-                    </div>
-                  )}
-                  
-                  {/* 3. RIESGOS Y PLAN B (Componente Existente) */}
-                  <WeatherResults
-                    data={results}
-                    isNightMode={isNightMode}
-                  />
+         {/* ========================================================= */}
+         {/* 1. BANNER DE CAMBIO CLIMÁTICO */}
+         {results.climate_trend && (
+           <div className={`p-4 rounded-xl shadow-md mb-6 transition-all ${
+             results.climate_trend && results.climate_trend.includes('ALARMA')
+               ? 'bg-red-600/30 text-red-100 border-l-4 border-red-500' 
+               : 'bg-green-600/30 text-green-100 border-l-4 border-green-500'
+             }`}>
+             <p className="font-bold">Análisis de Tendencia Climática:</p>
+             <p>{results.climate_trend}</p>
+           </div>
+         )}
+                 
+                 {/* 2. RIESGOS Y PLAN B (Componente Existente) */}
+                 <WeatherResults
+                   data={results}
+                   isNightMode={isNightMode}
+                 />
+                 
+         {/* ========================================================= */}
+         {/* 3. VISUALIZACIONES CLIMÁTICAS INTERACTIVAS */}
+         {results.visualizations && (
+           <ClimateVisualizations 
+             visualizations={results.visualizations}
+             isNightMode={isNightMode}
+           />
+         )}
                 </>
               )}
 

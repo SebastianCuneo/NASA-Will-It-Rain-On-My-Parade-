@@ -5,16 +5,12 @@
  */
 
 import React, { useState } from 'react';
-import { getCityCoordinates, getAutocompleteSuggestions } from '../utils/geocoding';
+import MapSelector from './MapSelector';
 
 const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const [formData, setFormData] = useState(initialData);
-  const [cityInput, setCityInput] = useState('Montevideo');
   const [lat, setLat] = useState(-34.90);
   const [lon, setLon] = useState(-56.16);
-  const [coordinateError, setCoordinateError] = useState('');
-  const [searchingCity, setSearchingCity] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
 
   const weatherOptions = [
     { id: 'wet', emoji: '🌧️', label: 'Very Rainy' },
@@ -39,73 +35,19 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     }));
   };
 
-  const handleCityInputChange = (value) => {
-    setCityInput(value);
-    setCoordinateError('');
+  const handleMapLocationSelect = (latitude, longitude) => {
+    setLat(latitude);
+    setLon(longitude);
     
-    // Show autocomplete suggestions
-    if (value.length >= 2) {
-      const filtered = getAutocompleteSuggestions(value, 5);
-      setSuggestions(filtered);
-    } else {
-      setSuggestions([]);
-    }
+    // Update location in form data with coordinates
+    setFormData(prev => ({
+      ...prev,
+      location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+    }));
+    
+    console.log(`✅ Location selected: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
   };
 
-  const handleCitySearch = async (cityName = cityInput) => {
-    if (!cityName || cityName.trim().length === 0) {
-      setCoordinateError('Please enter a city name');
-      return;
-    }
-
-    setSearchingCity(true);
-    setCoordinateError('');
-    setSuggestions([]);
-
-    try {
-      const result = await getCityCoordinates(cityName);
-
-      if (result) {
-        setLat(result.lat);
-        setLon(result.lon);
-        setCityInput(result.city || cityName);
-        
-        // Update location in form data
-        setFormData(prev => ({
-          ...prev,
-          location: result.displayName || cityName
-        }));
-        
-        console.log(`✅ City found: ${result.displayName} (${result.lat}, ${result.lon})`);
-      } else {
-        setCoordinateError(`City "${cityName}" not found. Please try another name.`);
-      }
-    } catch (error) {
-      console.error('City search error:', error);
-      setCoordinateError('Error searching city. Please check your connection.');
-    } finally {
-      setSearchingCity(false);
-    }
-  };
-
-  const handleSuggestionClick = (cityName) => {
-    setCityInput(cityName);
-    setSuggestions([]);
-    handleCitySearch(cityName);
-  };
-
-  const validateCoordinates = () => {
-    if (isNaN(lat) || lat < -90 || lat > 90) {
-      setCoordinateError('Latitude must be a number between -90 and 90');
-      return false;
-    }
-    if (isNaN(lon) || lon < -180 || lon > 180) {
-      setCoordinateError('Longitude must be a number between -180 and 180');
-      return false;
-    }
-    setCoordinateError('');
-    return true;
-  };
 
   const toggleWeatherCondition = (conditionId) => {
     setFormData(prev => ({
@@ -127,11 +69,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validate coordinates before submitting
-    if (!validateCoordinates()) {
-      return; // Stop submission if validation fails
-    }
-    
     // Create payload with coordinates - ensure explicit float conversion
     const payload = {
       ...formData,
@@ -152,91 +89,17 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     <form id="weather-form" className="space-y-8" onSubmit={handleSubmit}>
       {/* Step 1 & 2: Location and Date - Side by side on desktop */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Step 1: Location Search */}
+        {/* Step 1: Interactive Map */}
         <div>
           <label className="block text-lg font-bold text-slate-300 mb-3">
             Step 1: Choose Location
           </label>
-          <div className="space-y-4">
-            {/* City Search Input */}
-            <div className="relative">
-              <label htmlFor="city-search" className="block text-sm font-medium text-slate-300 mb-2">
-                City Name
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    id="city-search"
-                    value={cityInput}
-                    onChange={(e) => handleCityInputChange(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleCitySearch();
-                      }
-                    }}
-                    className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 p-4"
-                    placeholder="e.g., New York, Tokyo, Paris, London..."
-                    disabled={searchingCity}
-                  />
-                  
-                  {/* Autocomplete Suggestions */}
-                  {suggestions.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {suggestions.map((city, index) => (
-                        <div
-                          key={index}
-                          onClick={() => handleSuggestionClick(city)}
-                          className="px-4 py-3 hover:bg-slate-700 cursor-pointer text-white border-b border-slate-700 last:border-b-0 transition-colors"
-                        >
-                          📍 {city}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => handleCitySearch()}
-                  disabled={searchingCity}
-                  className="px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
-                >
-                  {searchingCity ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Searching...
-                    </span>
-                  ) : (
-                    '🔍 Search'
-                  )}
-                </button>
-              </div>
-            </div>
-            
-            {/* Error Message */}
-            {coordinateError && (
-              <div className="text-red-400 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                ⚠️ {coordinateError}
-              </div>
-            )}
-            
-            {/* Coordinates Display */}
-            <div className="text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-              <strong className="text-slate-300">📍 Coordinates:</strong> {lat.toFixed(4)}, {lon.toFixed(4)}<br/>
-              <strong className="text-slate-300">🌍 Global Coverage:</strong> NASA POWER data available worldwide
-            </div>
-          </div>
+          <MapSelector
+            onLocationSelect={handleMapLocationSelect}
+            isNightMode={isNightMode}
+            initialLat={lat}
+            initialLon={lon}
+          />
         </div>
 
         {/* Step 2: Date */}
