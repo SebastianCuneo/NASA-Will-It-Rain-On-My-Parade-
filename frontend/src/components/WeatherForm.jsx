@@ -8,16 +8,20 @@ import React, { useState } from 'react';
 import MapSelector from './MapSelector.jsx';
 
 const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
+  // Estado del formulario con datos iniciales proporcionados por el componente padre
   const [formData, setFormData] = useState(initialData);
+  // Coordenadas por defecto para Montevideo, Uruguay (ubicación principal del proyecto)
   const [lat, setLat] = useState(-34.90);
   const [lon, setLon] = useState(-56.16);
 
+  // Configuración de opciones climáticas adversas - selección única
   const weatherOptions = [
     { id: 'wet', emoji: '🌧️', label: 'Very Rainy' },
     { id: 'hot', emoji: '🔥', label: 'Very Hot' },
     { id: 'cold', emoji: '❄️', label: 'Very Cold' }
   ];
 
+  // Configuración de actividades opcionales - selección única
   const activityOptions = [
     { id: 'surf', emoji: '🏄', label: 'Surfing' },
     { id: 'beach', emoji: '🏖️', label: 'Beach Day' },
@@ -35,30 +39,34 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     }));
   };
 
+  // Maneja la selección de ubicación desde el componente MapSelector
   const handleMapLocationSelect = (latitude, longitude) => {
     setLat(latitude);
     setLon(longitude);
     
-    // Update location in form data with coordinates
+    // Actualiza la ubicación en los datos del formulario con coordenadas formateadas
     setFormData(prev => ({
       ...prev,
       location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
     }));
     
-    console.log(`✅ Location selected: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+    // INFO: Registro de selección de ubicación exitosa
+    console.info(`📍 Ubicación seleccionada: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
   };
 
 
+  // Implementa selección única para condiciones climáticas adversas
   const toggleWeatherCondition = (conditionId) => {
     setFormData(prev => ({
       ...prev,
-      // Enforce single-select: select the clicked one or clear if clicked again
+      // Lógica de selección única: selecciona el clickeado o limpia si se clickea nuevamente
       weatherConditions: prev.weatherConditions.includes(conditionId)
         ? []
         : [conditionId]
     }));
   };
 
+  // Implementa selección única para actividades opcionales
   const toggleActivity = (activityId) => {
     setFormData(prev => ({
       ...prev,
@@ -66,23 +74,78 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     }));
   };
 
+  // Valida los datos del formulario antes del envío
+  const validateFormData = (data) => {
+    const errors = [];
+    
+    // Validar coordenadas
+    if (!data.latitude || !data.longitude) {
+      errors.push('Ubicación requerida');
+    } else if (data.latitude < -90 || data.latitude > 90 || data.longitude < -180 || data.longitude > 180) {
+      errors.push('Coordenadas fuera de rango válido');
+    }
+    
+    // Validar fecha
+    if (!data.date) {
+      errors.push('Fecha requerida');
+    } else {
+      const selectedDate = new Date(data.date);
+      const today = new Date();
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(today.getFullYear() + 1);
+      
+      if (selectedDate < today) {
+        errors.push('La fecha no puede ser anterior a hoy');
+      } else if (selectedDate > oneYearFromNow) {
+        errors.push('La fecha no puede ser más de un año en el futuro');
+      }
+    }
+    
+    // Validar condición climática
+    if (!data.weatherConditions || data.weatherConditions.length === 0) {
+      errors.push('Condición climática requerida');
+    }
+    
+    return errors;
+  };
+
+  // Maneja el envío del formulario y transforma los datos para el backend
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Create payload with coordinates - ensure explicit float conversion
-    const payload = {
-      ...formData,
-      latitude: parseFloat(lat), // Ensure it's a float number
-      longitude: parseFloat(lon), // Ensure it's a float number
-      event_date: formData.date,
-      adverse_condition: formData.weatherConditions[0] || 'hot' // Send first selected condition
-    };
-    
-    // Debugging: Log payload before sending
-    console.log('WeatherForm Payload:', payload);
-    console.log('Coordinates:', { lat: payload.latitude, lon: payload.longitude });
-    
-    onSubmit(payload);
+    try {
+      // Crea el payload con coordenadas - asegura conversión explícita a float
+      const payload = {
+        ...formData,
+        latitude: parseFloat(lat), // Asegura que sea un número float
+        longitude: parseFloat(lon), // Asegura que sea un número float
+        event_date: formData.date,
+        adverse_condition: formData.weatherConditions[0] || 'hot' // Envía la primera condición seleccionada
+      };
+      
+      // Validar datos antes del envío
+      const validationErrors = validateFormData(payload);
+      if (validationErrors.length > 0) {
+        console.error('❌ Errores de validación:', validationErrors);
+        alert(`Errores encontrados:\n${validationErrors.join('\n')}`);
+        return;
+      }
+      
+      // INFO: Registro de envío de formulario con datos completos
+      console.info('📤 Enviando formulario con datos:', {
+        hasLocation: !!payload.latitude,
+        hasDate: !!payload.event_date,
+        hasCondition: !!payload.adverse_condition,
+        hasActivity: !!payload.activity,
+        coordinates: { lat: payload.latitude, lon: payload.longitude }
+      });
+      
+      onSubmit(payload);
+      
+    } catch (error) {
+      console.error('❌ Error en handleSubmit:', error);
+      alert('Error al procesar el formulario. Por favor, inténtalo de nuevo.');
+    }
   };
 
   return (
