@@ -1,178 +1,44 @@
 /**
  * UcuWeather - Main App Component
  * NASA Space Apps Challenge - React Application
- * Adapted from original HTML design
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import WeatherForm from './components/WeatherForm';
 import ClimateVisualizations from './components/ClimateVisualizations.jsx';
 import WeatherResults from './components/WeatherResults';
+import useTheme from './hooks/useTheme';
+import useWeatherAPI from './hooks/useWeatherAPI';
 
 function App() {
-  const [isNightMode, setIsNightMode] = useState(false);
+  console.info('🚀 App initialized');
+  
+  // Usar hooks personalizados para separar responsabilidades
+  const { isNightMode, toggleMode } = useTheme();
+  const { loading, results, handleFormSubmit, showTemporaryMessage } = useWeatherAPI();
+  
+  // Estado inicial del formulario con valores por defecto para Montevideo
   const [formData, setFormData] = useState({
     location: 'Montevideo',
-    date: new Date().toISOString().split('T')[0],
-    weatherConditions: ['wet'],
+    date: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
+    weatherConditions: ['wet'], // Condición climática por defecto
     activity: null
   });
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
+  // Estado para mensajes temporales de error/éxito
   const [tempMessage, setTempMessage] = useState(null);
 
-  // Initialize mode based on localStorage or time
-  useEffect(() => {
-    const savedMode = localStorage.getItem('themeMode');
-    let initialNightMode;
-    
-    if (savedMode) {
-      initialNightMode = savedMode === 'night';
-    } else {
-      const now = new Date();
-      const hour = now.getHours();
-      const sunriseHour = 7;
-      const sunsetHour = 19;
-      initialNightMode = !(hour >= sunriseHour && hour < sunsetHour);
-    }
-    
-    setIsNightMode(initialNightMode);
-  }, []);
-
-  // Apply mode classes to body
-  useEffect(() => {
-    const body = document.body;
-    if (isNightMode) {
-      body.classList.remove('day-mode');
-      body.classList.add('night-mode');
-    } else {
-      body.classList.remove('night-mode');
-      body.classList.add('day-mode');
-    }
-  }, [isNightMode]);
-
-  const toggleMode = () => {
-    const newMode = !isNightMode;
-    setIsNightMode(newMode);
-    localStorage.setItem('themeMode', newMode ? 'night' : 'day');
+  // Función wrapper para manejar el envío del formulario
+  const handleFormSubmitWrapper = async (data) => {
+    console.info('📝 Form submitted', { 
+      hasLocation: !!data.latitude,
+      hasDate: !!data.date,
+      hasCondition: !!data.weatherConditions[0]
+    });
+    setFormData(data);
+    await handleFormSubmit(data);
   };
 
-  const showTemporaryMessage = (message, type = 'error') => {
-    setTempMessage({ message, type });
-    setTimeout(() => setTempMessage(null), 3000);
-  };
-
-  const handleFormSubmit = async (data) => {
-    if (data.weatherConditions.length === 0) {
-    showTemporaryMessage('Please select at least one weather condition.', 'error');
-     return;
-     }
-    
-     setFormData(data);
-     setLoading(true);
-     setResults(null);
-    
-     try {
-     // Create payload for API call
-     const apiPayload = {
-     latitude: data.latitude,  // Use coordinates from form
-     longitude: data.longitude,
-     event_date: data.event_date,  // Send date as string
-     adverse_condition: data.weatherConditions[0] || 'Very Hot'  // Send first selected condition
-       };
-    
-    // Debugging: Log API payload
-     console.log('App.js API Payload:', apiPayload);
-     console.log('API URL: http://localhost:8000/api/visualizations-only');
-    
-    // Call the FastAPI backend (using simple visualizations endpoint)
-    const response = await fetch('http://localhost:8000/api/visualizations-only', {
-     method: 'POST',
-     headers: {
-     'Content-Type': 'application/json',
-     },
-     body: JSON.stringify(apiPayload)
-     });
-    
-          // === 1. SINGLE RESPONSE VERIFICATION ===
-          if (!response.ok) {
-            throw new Error(`API call failed: ${response.status}`);
-          }
-    
-          // === 2. JSON PARSING ===
-          const apiData = await response.json();
-          
-          // Debugging: Log API response
-          console.log('App.js API Response:', apiData);
-          
-     // Extract data from the simple visualizations API response
-     const visualizations = apiData.visualizations;
-     
-     // Create mock data for other components since this endpoint only provides visualizations
-     const temperatureRisk = {
-       probability: 25.0,
-       risk_level: "MODERATE",
-       status_message: "Moderate risk detected",
-       risk_threshold: 28.0
-     };
-     const precipitationRisk = temperatureRisk;
-     const coldRisk = temperatureRisk;
-     const planB = {
-       success: true,
-       alternatives: [
-        "Plan A: Main activity with precautions",
-        "Plan B: Alternative indoor activity",
-        "Plan C: Postpone for better weather"
-       ],
-       ai_model: "Simple",
-       message: "Plans generated without AI"
-     };
-     const plotData = [];
-     const climateTrend = visualizations?.climate_trend || "Climate trend analysis completed";
-          
-          // Combine API data with form data
-          const combinedData = {
-            ...data,
-            apiResults: apiData,
-            temperature_risk: {
-              probability: temperatureRisk.probability,
-              risk_level: temperatureRisk.risk_level,
-              status_message: temperatureRisk.status_message,
-              risk_threshold: temperatureRisk.risk_threshold
-            },
-            precipitation_risk: {
-              probability: precipitationRisk.probability,
-              risk_level: precipitationRisk.risk_level,
-              status_message: precipitationRisk.status_message,
-              risk_threshold: precipitationRisk.risk_threshold
-            },
-            cold_risk: {
-              probability: coldRisk.probability,
-              risk_level: coldRisk.risk_level,
-              status_message: coldRisk.status_message,
-              risk_threshold: coldRisk.risk_threshold
-            },
-            plan_b: planB,
-            
-     // === ADD PLOTLY AND CLIMATE DATA TO RESULTS OBJECT ===
-     plot_data: plotData,
-     climate_trend: climateTrend,
-     visualizations: visualizations
-     // ========================================================
-          };
-    
-          setResults(combinedData);
-    
-        } catch (error) {
-          console.error('API Error:', error);
-          showTemporaryMessage('Error connecting to weather service. Using offline data.', 'warning');
-          // Fallback to mock data
-          setResults(data);
-        } finally {
-          setLoading(false);
-        }
-      };
 
   return (
     <div className="min-h-screen relative">
@@ -265,7 +131,7 @@ function App() {
               </h2>
               
               <WeatherForm
-                onSubmit={handleFormSubmit}
+                onSubmit={handleFormSubmitWrapper}
                 loading={loading}
                 isNightMode={isNightMode}
                 initialData={formData}
@@ -308,6 +174,11 @@ function App() {
 
               {results && (
                 <>
+                  {console.info('📊 Results updated', { 
+                    hasResults: !!results,
+                    hasVisualizations: !!results.visualizations,
+                    hasClimateTrend: !!results.climate_trend
+                  })}
                   {/* 2. RISKS AND PLAN B (Existing Component) */}
                   <WeatherResults
                     data={results}
