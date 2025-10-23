@@ -72,8 +72,8 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     // Create payload with coordinates - ensure explicit float conversion
     const payload = {
       ...formData,
-      latitude: parseFloat(lat), // Asegurar que es un número flotante
-      longitude: parseFloat(lon), // Asegurar que es un número flotante
+      latitude: parseFloat(lat), // Ensure it's a float number
+      longitude: parseFloat(lon), // Ensure it's a float number
       event_date: formData.date,
       adverse_condition: formData.weatherConditions[0] || 'hot' // Send first selected condition
     };

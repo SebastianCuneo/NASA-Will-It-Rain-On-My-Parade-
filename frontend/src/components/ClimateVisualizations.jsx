@@ -18,11 +18,11 @@ const ClimateVisualizations = ({ visualizations, isNightMode }) => {
           : 'bg-gray-100/90 border border-gray-200 text-gray-800'
       }`}>
         <h3 className="text-xl font-bold mb-3">
-          📊 Análisis de Visualizaciones Climáticas
+          📊 Climate Visualization Analysis
         </h3>
         <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center p-4">
           <p className="text-gray-500">
-            No hay datos de visualización disponibles
+            No visualization data available
           </p>
         </div>
       </div>
@@ -34,18 +34,18 @@ const ClimateVisualizations = ({ visualizations, isNightMode }) => {
   // Chart titles and descriptions
   const chartConfigs = [
     {
-      title: "📈 Evolución del Percentil 90 (P90) de Temperatura",
-      description: "Muestra la tendencia del P90 de temperatura máxima a lo largo de los años, incluyendo la línea de tendencia y comparación con la temperatura media.",
+      title: "📈 Evolution of 90th Percentile (P90) Temperature",
+      description: "Shows the trend of P90 maximum temperature over the years, including the trend line and comparison with mean temperature.",
       type: "p90_trend"
     },
     {
-      title: "📊 Comparación Climática: P90 vs Histórico",
-      description: "Análisis comparativo que muestra P90 vs temperaturas históricas y rangos de temperatura (mínima, media, máxima).",
+      title: "📊 Climate Comparison: P90 vs Historical",
+      description: "Comparative analysis showing P90 vs historical temperatures and temperature ranges (min, mean, max).",
       type: "climate_comparison"
     },
     {
-      title: "🔥 Análisis de Riesgo de Calor",
-      description: "Visualización de riesgo de calor con áreas coloreadas según umbrales de riesgo y comparación P90 vs temperatura máxima.",
+      title: "🔥 Heat Risk Analysis",
+      description: "Heat risk visualization with colored areas according to risk thresholds and P90 vs maximum temperature comparison.",
       type: "heat_risk_analysis"
     }
   ];
@@ -57,7 +57,7 @@ const ClimateVisualizations = ({ visualizations, isNightMode }) => {
         : 'bg-gray-100/90 border border-gray-200 text-gray-800'
     }`}>
       <h3 className="text-xl font-bold mb-4">
-        📊 Visualizaciones Climáticas Interactivas
+        📊 Interactive Climate Visualizations
       </h3>
       
       <div className="space-y-8 max-w-full overflow-hidden">
@@ -68,7 +68,7 @@ const ClimateVisualizations = ({ visualizations, isNightMode }) => {
             return (
               <div key={index} className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 p-6">
                 <h4 className="font-semibold mb-2">{config.title}</h4>
-                <p className="text-sm text-gray-500">Gráfico no disponible</p>
+                <p className="text-sm text-gray-500">Chart not available</p>
               </div>
             );
           }
@@ -103,7 +103,7 @@ const ClimateVisualizations = ({ visualizations, isNightMode }) => {
             ? 'bg-slate-600/50 border border-slate-500' 
             : 'bg-blue-50 border border-blue-200'
         }`}>
-          <h4 className="font-semibold mb-2">📋 Resumen de Tendencia Climática</h4>
+          <h4 className="font-semibold mb-2">📋 Climate Trend Summary</h4>
           <p className="text-sm">{visualizations.climate_trend}</p>
         </div>
       )}
