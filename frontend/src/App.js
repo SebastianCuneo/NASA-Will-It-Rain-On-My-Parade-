@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import WeatherForm from './components/WeatherForm';
-import ClimateVisualizations from './components/ClimateVisualizations';
+import ClimateVisualizations from './components/ClimateVisualizations.jsx';
 import WeatherResults from './components/WeatherResults';
 
 function App() {
@@ -65,7 +65,7 @@ function App() {
 
   const handleFormSubmit = async (data) => {
     if (data.weatherConditions.length === 0) {
-    showTemporaryMessage('Por favor, selecciona al menos una condición climática.', 'error');
+    showTemporaryMessage('Please select at least one weather condition.', 'error');
      return;
      }
     
@@ -95,12 +95,12 @@ function App() {
      body: JSON.stringify(apiPayload)
      });
     
-          // === 1. ÚNICA VERIFICACIÓN DE RESPUESTA ===
+          // === 1. SINGLE RESPONSE VERIFICATION ===
           if (!response.ok) {
             throw new Error(`API call failed: ${response.status}`);
           }
     
-          // === 2. PARSEO DE JSON ===
+          // === 2. JSON PARSING ===
           const apiData = await response.json();
           
           // Debugging: Log API response
@@ -121,15 +121,15 @@ function App() {
      const planB = {
        success: true,
        alternatives: [
-         "Plan A: Actividad principal con precauciones",
-         "Plan B: Actividad alternativa en interior",
-         "Plan C: Postponer para mejor clima"
+        "Plan A: Main activity with precautions",
+        "Plan B: Alternative indoor activity",
+        "Plan C: Postpone for better weather"
        ],
        ai_model: "Simple",
-       message: "Planes generados sin IA"
+       message: "Plans generated without AI"
      };
      const plotData = [];
-     const climateTrend = visualizations?.climate_trend || "Análisis de tendencia climática completado";
+     const climateTrend = visualizations?.climate_trend || "Climate trend analysis completed";
           
           // Combine API data with form data
           const combinedData = {
@@ -155,7 +155,7 @@ function App() {
             },
             plan_b: planB,
             
-     // === AÑADIR DATOS DE PLOTLY Y CLIMA AL OBJETO RESULTS ===
+     // === ADD PLOTLY AND CLIMATE DATA TO RESULTS OBJECT ===
      plot_data: plotData,
      climate_trend: climateTrend,
      visualizations: visualizations
@@ -306,37 +306,24 @@ function App() {
                 </div>
               )}
 
-              {results && (
-                <>
-         {/* ========================================================= */}
-         {/* 1. BANNER DE CAMBIO CLIMÁTICO */}
-         {results.climate_trend && (
-           <div className={`p-4 rounded-xl shadow-md mb-6 transition-all ${
-             results.climate_trend && results.climate_trend.includes('ALARMA')
-               ? 'bg-red-600/30 text-red-100 border-l-4 border-red-500' 
-               : 'bg-green-600/30 text-green-100 border-l-4 border-green-500'
-             }`}>
-             <p className="font-bold">Análisis de Tendencia Climática:</p>
-             <p>{results.climate_trend}</p>
-           </div>
-         )}
-                 
-                 {/* 2. RIESGOS Y PLAN B (Componente Existente) */}
-                 <WeatherResults
-                   data={results}
-                   isNightMode={isNightMode}
-                 />
-                 
-         {/* ========================================================= */}
-         {/* 3. VISUALIZACIONES CLIMÁTICAS INTERACTIVAS */}
-         {results.visualizations && (
-           <ClimateVisualizations 
-             visualizations={results.visualizations}
-             isNightMode={isNightMode}
-           />
-         )}
-                </>
-              )}
+              {results && (
+                <>
+                  {/* 2. RISKS AND PLAN B (Existing Component) */}
+                  <WeatherResults
+                    data={results}
+                    isNightMode={isNightMode}
+                  />
+                  
+                  {/* ========================================================= */}
+                  {/* 3. INTERACTIVE CLIMATE VISUALIZATIONS */}
+                  {results.visualizations && (
+                    <ClimateVisualizations 
+                      visualizations={results.visualizations}
+                      isNightMode={isNightMode}
+                    />
+                  )}
+                </>
+              )}
 
 
               {!loading && !results && (

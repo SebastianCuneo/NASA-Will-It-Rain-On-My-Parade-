@@ -7,3 +7,4 @@ python-multipart
 pydantic
 google-generativeai
 plotly
+python-dotenv

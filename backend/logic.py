@@ -38,7 +38,7 @@ def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
     if historical_data.empty:
         return {
             "plot_data": [],
-            "climate_trend": "No se encontraron datos históricos suficientes para realizar el análisis de tendencia climática (P90 anual)."
+            "climate_trend": "No sufficient historical data found to perform climate trend analysis (annual P90)."
         }
     
     # Filtrar datos válidos (NASA usa -999 para datos faltantes)
@@ -47,7 +47,7 @@ def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
     if valid_data.empty:
         return {
             "plot_data": [],
-            "climate_trend": "No se encontraron datos de temperatura válidos para el análisis P90."
+            "climate_trend": "No valid temperature data found for P90 analysis."
         }
     
     # Calcular P90 por año con granularidad correcta
@@ -81,13 +81,13 @@ def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
         mean_trend_diff = end_mean - start_mean
         
         if trend_diff > 1.0:
-            trend_summary = f"ALARMA: El umbral de calor extremo (P90) ha aumentado en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media también aumentó {mean_trend_diff:.2f}°C. Esto sugiere una clara tendencia al aumento de temperaturas extremas."
+            trend_summary = f"Significant trend: The extreme heat threshold (P90) has increased by {trend_diff:.2f}°C between {start_year} and {end_year}. The mean temperature also increased by {mean_trend_diff:.2f}°C."
         elif trend_diff > 0.3:
-            trend_summary = f"Advertencia: El umbral de calor extremo (P90) ha aumentado ligeramente en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C. Se recomienda monitoreo continuo."
+            trend_summary = f"Warning: The extreme heat threshold (P90) has increased slightly by {trend_diff:.2f}°C between {start_year} and {end_year}. The mean temperature changed by {mean_trend_diff:.2f}°C. Continuous monitoring is recommended."
         else:
-            trend_summary = f"Estable: El umbral de calor extremo (P90) se ha mantenido relativamente estable, con una variación de {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C."
+            trend_summary = f"Stable: The extreme heat threshold (P90) has remained relatively stable, with a variation of {trend_diff:.2f}°C between {start_year} and {end_year}. The mean temperature changed by {mean_trend_diff:.2f}°C."
     else:
-        trend_summary = "Datos insuficientes (menos de 2 años) para calcular una tendencia climática anual significativa."
+        trend_summary = "Insufficient data (less than 2 years) to calculate a significant annual climate trend."
 
     return {
         "plot_data": plot_data,

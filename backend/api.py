@@ -33,6 +33,14 @@ except ImportError as e:
             raise FileNotFoundError("mock_data.csv not found")
         except Exception as e:
             raise Exception(f"Error loading data: {str(e)}")
+    
+    def generate_plotly_visualizations(historical_data) -> Dict[str, Any]:
+        """Fallback function for plotly visualizations"""
+        return {
+            "success": True,
+            "message": "Plotly visualizations not available (fallback mode)",
+            "charts": []
+        }
 
     def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         if monthly_data.empty:
@@ -266,11 +274,34 @@ async def get_visualizations_only(request: RiskRequest):
     try:
         print(f'Visualizations endpoint received: Lat={request.latitude}, Lon={request.longitude}, Date={request.event_date}, Condition={request.adverse_condition}')
         
+        # Extraer mes de la fecha
+        try:
+            # Convertir fecha a string si es necesario
+            date_str = str(request.event_date)
+            if '/' in date_str:
+                day, month, year = date_str.split('/')
+                month_filter = int(month)
+            elif '-' in date_str:
+                year, month, day = date_str.split('-')
+                month_filter = int(month)
+            else:
+                month_filter = 3  # Default to March
+        except:
+            month_filter = 3  # Default to March
+        
         # Intentar cargar datos históricos reales basados en las coordenadas
-        historical_data = load_historical_data(request.latitude, request.longitude)
+        historical_data = load_historical_data(month_filter, request.latitude, request.longitude)
+        
+        # Verificar si tenemos datos válidos (DataFrame o dict)
+        if isinstance(historical_data, dict):
+            # Si es un diccionario, usar datos de prueba
+            historical_data = None
+        elif hasattr(historical_data, 'empty') and historical_data.empty:
+            # Si es DataFrame vacío, usar datos de prueba
+            historical_data = None
         
         # Si no hay datos históricos, usar datos de prueba con variación basada en coordenadas
-        if historical_data.empty:
+        if historical_data is None:
             print("No historical data available, using test data with coordinate-based variation")
             years = list(range(2020, 2025))
             
@@ -386,11 +417,11 @@ async def get_risk_analysis_working(request: RiskRequest):
         print(f"Working endpoint error: {str(e)}")
         import traceback
         traceback.print_exc()
-        return {
+    return {
             "success": False,
             "error": str(e),
             "message": "Working endpoint failed"
-        }
+    }
 
 # Endpoint adicional para testing
 @app.get("/api/test")
