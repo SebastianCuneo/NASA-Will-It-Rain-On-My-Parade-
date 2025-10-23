@@ -81,7 +81,7 @@ def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
         mean_trend_diff = end_mean - start_mean
         
         if trend_diff > 1.0:
-            trend_summary = f"ALARMA: El umbral de calor extremo (P90) ha aumentado en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media también aumentó {mean_trend_diff:.2f}°C. Esto sugiere una clara tendencia al aumento de temperaturas extremas."
+            trend_summary = f"Tendencia significativa: El umbral de calor extremo (P90) ha aumentado en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media también aumentó {mean_trend_diff:.2f}°C."
         elif trend_diff > 0.3:
             trend_summary = f"Advertencia: El umbral de calor extremo (P90) ha aumentado ligeramente en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C. Se recomienda monitoreo continuo."
         else:

@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import WeatherForm from './components/WeatherForm';
-import ClimateVisualizations from './components/ClimateVisualizations';
+import ClimateVisualizations from './components/ClimateVisualizations.jsx';
 import WeatherResults from './components/WeatherResults';
 
 function App() {
@@ -306,37 +306,24 @@ function App() {
                 </div>
               )}
 
-              {results && (
-                <>
-         {/* ========================================================= */}
-         {/* 1. BANNER DE CAMBIO CLIMÁTICO */}
-         {results.climate_trend && (
-           <div className={`p-4 rounded-xl shadow-md mb-6 transition-all ${
-             results.climate_trend && results.climate_trend.includes('ALARMA')
-               ? 'bg-red-600/30 text-red-100 border-l-4 border-red-500' 
-               : 'bg-green-600/30 text-green-100 border-l-4 border-green-500'
-             }`}>
-             <p className="font-bold">Análisis de Tendencia Climática:</p>
-             <p>{results.climate_trend}</p>
-           </div>
-         )}
-                 
-                 {/* 2. RIESGOS Y PLAN B (Componente Existente) */}
-                 <WeatherResults
-                   data={results}
-                   isNightMode={isNightMode}
-                 />
-                 
-         {/* ========================================================= */}
-         {/* 3. VISUALIZACIONES CLIMÁTICAS INTERACTIVAS */}
-         {results.visualizations && (
-           <ClimateVisualizations 
-             visualizations={results.visualizations}
-             isNightMode={isNightMode}
-           />
-         )}
-                </>
-              )}
+              {results && (
+                <>
+                  {/* 2. RIESGOS Y PLAN B (Componente Existente) */}
+                  <WeatherResults
+                    data={results}
+                    isNightMode={isNightMode}
+                  />
+                  
+                  {/* ========================================================= */}
+                  {/* 3. VISUALIZACIONES CLIMÁTICAS INTERACTIVAS */}
+                  {results.visualizations && (
+                    <ClimateVisualizations 
+                      visualizations={results.visualizations}
+                      isNightMode={isNightMode}
+                    />
+                  )}
+                </>
+              )}
 
 
               {!loading && !results && (

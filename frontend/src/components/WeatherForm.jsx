@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import MapSelector from './MapSelector';
+import MapSelector from './MapSelector.jsx';
 
 const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   const [formData, setFormData] = useState(initialData);
