@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Import logic module from same directory
 try:
-    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data
+    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data, generate_plotly_visualizations
 except ImportError as e:
     print(f"Error importing logic module: {e}")
     # Fallback functions if logic module is not found
@@ -67,6 +67,70 @@ except ImportError as e:
             'total_observations': total_observations,
             'adverse_count': adverse_count
         }
+    
+    def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
+        """Fallback climate trend function"""
+        if historical_data.empty:
+            return {
+                "plot_data": [],
+                "climate_trend": "No sufficient historical data found to perform climate trend analysis."
+            }
+        
+        # Simple trend calculation
+        years = historical_data['Year'].unique() if 'Year' in historical_data.columns else []
+        if len(years) >= 2:
+            trend_summary = f"Climate trend analysis completed for {len(years)} years of data."
+        else:
+            trend_summary = "Insufficient data for climate trend analysis."
+        
+        return {
+            "plot_data": [],
+            "climate_trend": trend_summary
+        }
+    
+    def generate_plotly_visualizations(historical_data: pd.DataFrame) -> Dict[str, Any]:
+        """Fallback visualization function"""
+        return {
+            "success": True,
+            "charts": [],
+            "climate_trend": "Visualizations not available in fallback mode",
+            "data_points": len(historical_data) if not historical_data.empty else 0,
+            "generated_at": datetime.now().isoformat()
+        }
+    
+    def generate_plan_b_with_gemini(*args, **kwargs) -> Dict[str, Any]:
+        """Fallback Plan B function"""
+        return {
+            "success": True,
+            "alternatives": [
+                {
+                    "title": "Indoor Activity",
+                    "description": "Alternative indoor activity",
+                    "type": "indoor",
+                    "reason": "Weather-appropriate alternative",
+                    "tips": "Enjoy your indoor activity"
+                }
+            ],
+            "ai_model": "Fallback",
+            "message": "Plan B generated using fallback system"
+        }
+    
+    def generate_fallback_plan_b(*args, **kwargs) -> Dict[str, Any]:
+        """Fallback Plan B function"""
+        return {
+            "success": True,
+            "alternatives": [
+                {
+                    "title": "Alternative Activity",
+                    "description": "Weather-appropriate alternative",
+                    "type": "mixed",
+                    "reason": "Good alternative for current conditions",
+                    "tips": "Enjoy your activity"
+                }
+            ],
+            "ai_model": "Fallback",
+            "message": "Plan B generated using fallback system"
+        }
 
 # Tarea 1: Configuración de la Aplicación FastAPI
 app = FastAPI(
@@ -78,9 +142,9 @@ app = FastAPI(
 # Configuración CORS para permitir conexión desde React Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React frontend
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React frontend
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -395,11 +459,11 @@ async def get_risk_analysis_working(request: RiskRequest):
         print(f"Working endpoint error: {str(e)}")
         import traceback
         traceback.print_exc()
-    return {
+        return {
             "success": False,
             "error": str(e),
             "message": "Working endpoint failed"
-    }
+        }
 
 # Endpoint adicional para testing
 @app.get("/api/test")
