@@ -94,6 +94,32 @@ def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
         logger.error(f"Error loading fallback data: {str(e)}")
         return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
 
+def validate_coordinates(lat: float, lon: float) -> bool:
+    """
+    Valida que las coordenadas estén dentro del rango válido para Uruguay.
+    
+    Args:
+        lat: Latitud en grados decimales
+        lon: Longitud en grados decimales
+        
+    Returns:
+        bool: True si las coordenadas son válidas
+        
+    Raises:
+        ValueError: Si las coordenadas están fuera del rango válido
+    """
+    # Rango de coordenadas para Uruguay
+    URUGUAY_LAT_MIN, URUGUAY_LAT_MAX = -35.0, -30.0
+    URUGUAY_LON_MIN, URUGUAY_LON_MAX = -58.5, -53.0
+    
+    if not (URUGUAY_LAT_MIN <= lat <= URUGUAY_LAT_MAX):
+        raise ValueError(f"Latitud {lat} fuera del rango válido para Uruguay [{URUGUAY_LAT_MIN}, {URUGUAY_LAT_MAX}]")
+    
+    if not (URUGUAY_LON_MIN <= lon <= URUGUAY_LON_MAX):
+        raise ValueError(f"Longitud {lon} fuera del rango válido para Uruguay [{URUGUAY_LON_MIN}, {URUGUAY_LON_MAX}]")
+    
+    logger.info(f"Coordenadas validadas: ({lat}, {lon}) - Dentro del rango de Uruguay")
+    return True
 
 def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int) -> pd.DataFrame:
     """
@@ -122,6 +148,9 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
     empty_df = pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
     
     try:
+        # Validar coordenadas al inicio
+        validate_coordinates(lat, lon)
+        
         # URL base de la NASA POWER API para datos temporales diarios por punto
         base_url = "https://power.larc.nasa.gov/api/temporal/daily/point"
         
@@ -159,59 +188,109 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
                 time.sleep(2)
         
         if response is None:
-            logger.error("No response received from NASA API")
+            logger.error("No response received from NASA API after all retries")
             logger.info("Falling back to Montevideo data due to no response")
             return load_fallback_data(start_year, end_year)
             
-        # Parse de la respuesta JSON de la NASA
-        data = response.json()
+        # Parse de la respuesta JSON de la NASA con manejo de errores específico
+        logger.info("Parsing JSON response from NASA POWER API...")
+        try:
+            data = response.json()
+            logger.info("JSON response parsed successfully")
+        except ValueError as e:
+            logger.error(f"Error parsing JSON response: {str(e)}")
+            logger.info("Falling back to Montevideo data due to JSON parsing error")
+            return load_fallback_data(start_year, end_year)
+        except Exception as e:
+            logger.error(f"Unexpected error parsing response: {str(e)}")
+            logger.info("Falling back to Montevideo data due to parsing error")
+            return load_fallback_data(start_year, end_year)
         
         # Validación de la estructura de respuesta de la API
+        logger.info("Validating API response structure...")
+        
+        # Verificar mensajes de error de la API
         if 'messages' in data and data['messages'] and len(data['messages']) > 0:
             logger.error(f"NASA API returned error messages: {data['messages']}")
             logger.info("Falling back to Montevideo data due to API error messages")
             return load_fallback_data(start_year, end_year)
             
-        if 'properties' not in data or 'parameter' not in data['properties']:
-            logger.error(f"Invalid response format from NASA POWER API. Keys: {data.keys()}")
-            logger.info("Falling back to Montevideo data due to invalid response format")
+        # Verificar estructura de datos requerida
+        if 'properties' not in data:
+            logger.error(f"Missing 'properties' key in API response. Available keys: {list(data.keys())}")
+            logger.info("Falling back to Montevideo data due to missing properties")
+            return load_fallback_data(start_year, end_year)
+            
+        if 'parameter' not in data['properties']:
+            logger.error(f"Missing 'parameter' key in API properties. Available keys: {list(data['properties'].keys())}")
+            logger.info("Falling back to Montevideo data due to missing parameter data")
             return load_fallback_data(start_year, end_year)
         
         parameters = data['properties']['parameter']
+        logger.info(f"Available parameters in response: {list(parameters.keys())}")
         
         # Extracción de datos específicos: T2M_MAX, T2M_MIN, T2M (temperaturas) y PRECTOTCORR (precipitación)
+        logger.info("Extracting climate data from API response...")
         temp_max_data = parameters.get('T2M_MAX', {})
         temp_min_data = parameters.get('T2M_MIN', {})
         temp_avg_data = parameters.get('T2M', {})
         precip_data = parameters.get('PRECTOTCORR', {})
         
-        if not temp_max_data or not temp_min_data or not temp_avg_data or not precip_data:
-            logger.error("Temperature or precipitation data not found in API response")
-            logger.info("Falling back to Montevideo data due to missing climate data")
+        # Validar que todos los datos requeridos estén presentes
+        missing_params = []
+        if not temp_max_data:
+            missing_params.append('T2M_MAX')
+        if not temp_min_data:
+            missing_params.append('T2M_MIN')
+        if not temp_avg_data:
+            missing_params.append('T2M')
+        if not precip_data:
+            missing_params.append('PRECTOTCORR')
+            
+        if missing_params:
+            logger.error(f"Missing climate parameters in API response: {missing_params}")
+            logger.info("Falling back to Montevideo data due to missing climate parameters")
             return load_fallback_data(start_year, end_year)
             
-        # Conversión de datos JSON a DataFrame de Pandas
+        logger.info("All required climate parameters found in API response")
+            
+        # Conversión de datos JSON a DataFrame de Pandas con logging detallado
+        logger.info("Converting JSON data to DataFrame...")
         records = []
+        total_dates = len(temp_max_data)
+        processed_dates = 0
+        skipped_dates = 0
+        
         for date_str, temp_max_value in temp_max_data.items():
             if date_str in temp_min_data and date_str in temp_avg_data and date_str in precip_data:
-                # Parse de fecha en formato YYYYMMDD a objeto datetime
-                date_obj = datetime.strptime(date_str, '%Y%m%d')
-                
-                # Conversión de valores (la NASA usa None para datos faltantes)
-                temp_max_celsius = temp_max_value if temp_max_value is not None else None
-                temp_min_celsius = temp_min_data[date_str] if temp_min_data[date_str] is not None else None
-                temp_avg_celsius = temp_avg_data[date_str] if temp_avg_data[date_str] is not None else None
-                precip_mm = precip_data[date_str] if precip_data[date_str] is not None else None
-                
-                # Creación de registro estructurado
-                records.append({
-                    'Year': date_obj.year,
-                    'Month': date_obj.month,
-                    'Max_Temperature_C': temp_max_celsius,
-                    'Min_Temperature_C': temp_min_celsius,
-                    'Avg_Temperature_C': temp_avg_celsius,
-                    'Precipitation_mm': precip_mm
-                })
+                try:
+                    # Parse de fecha en formato YYYYMMDD a objeto datetime
+                    date_obj = datetime.strptime(date_str, '%Y%m%d')
+                    
+                    # Conversión de valores (la NASA usa None para datos faltantes)
+                    temp_max_celsius = temp_max_value if temp_max_value is not None else None
+                    temp_min_celsius = temp_min_data[date_str] if temp_min_data[date_str] is not None else None
+                    temp_avg_celsius = temp_avg_data[date_str] if temp_avg_data[date_str] is not None else None
+                    precip_mm = precip_data[date_str] if precip_data[date_str] is not None else None
+                    
+                    # Creación de registro estructurado
+                    records.append({
+                        'Year': date_obj.year,
+                        'Month': date_obj.month,
+                        'Max_Temperature_C': temp_max_celsius,
+                        'Min_Temperature_C': temp_min_celsius,
+                        'Avg_Temperature_C': temp_avg_celsius,
+                        'Precipitation_mm': precip_mm
+                    })
+                    processed_dates += 1
+                    
+                except ValueError as e:
+                    logger.warning(f"Error parsing date {date_str}: {str(e)}")
+                    skipped_dates += 1
+            else:
+                skipped_dates += 1
+        
+        logger.info(f"Data conversion completed: {processed_dates} dates processed, {skipped_dates} dates skipped")
         
         if not records:
             logger.error("No valid data records found in API response")
@@ -219,21 +298,51 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
             return load_fallback_data(start_year, end_year)
         
         # Creación del DataFrame final
+        logger.info("Creating final DataFrame...")
         df = pd.DataFrame(records)
         
         # Limpieza de datos: eliminación de filas con valores nulos
+        initial_count = len(df)
         df = df.dropna()
+        final_count = len(df)
+        removed_count = initial_count - final_count
+        
+        if removed_count > 0:
+            logger.warning(f"Removed {removed_count} records with missing values (from {initial_count} to {final_count})")
         
         # Ordenamiento por año y mes para análisis temporal
         df = df.sort_values(['Year', 'Month']).reset_index(drop=True)
         
+        # Validación final de datos
+        if len(df) == 0:
+            logger.error("DataFrame is empty after processing")
+            logger.info("Falling back to Montevideo data due to empty DataFrame")
+            return load_fallback_data(start_year, end_year)
+        
+        # Logging de estadísticas finales
         logger.info(f"Successfully fetched {len(df)} records from NASA POWER API")
+        logger.info(f"Date range: {df['Year'].min()}-{df['Month'].min():02d} to {df['Year'].max()}-{df['Month'].max():02d}")
+        logger.info(f"Temperature range: {df['Max_Temperature_C'].min():.1f}C to {df['Max_Temperature_C'].max():.1f}C")
+        logger.info(f"Precipitation range: {df['Precipitation_mm'].min():.1f}mm to {df['Precipitation_mm'].max():.1f}mm")
+        
         return df
         
+    except ValueError as e:
+        # Error de validación de coordenadas
+        logger.error(f"Coordinate validation error: {str(e)}")
+        logger.info("Falling back to Montevideo data due to coordinate validation error")
+        return load_fallback_data(start_year, end_year)
+        
+    except requests.exceptions.RequestException as e:
+        # Errores específicos de requests
+        logger.error(f"Request error: {str(e)}")
+        logger.info("Falling back to Montevideo data due to request error")
+        return load_fallback_data(start_year, end_year)
+        
     except Exception as e:
-        # Manejo de errores: retorna datos de fallback en lugar de DataFrame vacío
-        logger.error(f"Fatal Error fetching or processing NASA POWER data: {str(e)}")
-        logger.info("Falling back to Montevideo data due to fatal error")
+        # Manejo de errores inesperados: retorna datos de fallback en lugar de DataFrame vacío
+        logger.error(f"Unexpected error fetching or processing NASA POWER data: {str(e)}")
+        logger.info("Falling back to Montevideo data due to unexpected error")
         return load_fallback_data(start_year, end_year)
 
 def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
