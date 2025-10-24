@@ -12,9 +12,21 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import time
 import os
+import logging
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
+
+# Configuración de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('weather_api.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Import Gemini AI
 try:
@@ -25,14 +37,72 @@ except ImportError:
     print("Warning: google-generativeai not installed. Plan B generation will be disabled.")
 
 
+def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
+    """
+    Carga datos de fallback desde el archivo CSV de Montevideo cuando la NASA API no está disponible.
+    
+    Args:
+        start_year: Año inicial para el rango de datos
+        end_year: Año final para el rango de datos
+        
+    Returns:
+        pd.DataFrame: DataFrame con datos de fallback de Montevideo
+    """
+    try:
+        # Ruta al archivo de fallback
+        fallback_file = os.path.join(os.path.dirname(__file__), 'FALLBACK_MONTEVIDEO_DATA.csv')
+        
+        if not os.path.exists(fallback_file):
+            logger.error(f"Fallback file not found: {fallback_file}")
+            return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+        
+        logger.info(f"Loading fallback data from Montevideo CSV: {fallback_file}")
+        
+        # Leer el archivo CSV, saltando las líneas de header
+        df = pd.read_csv(fallback_file, skiprows=12)  # Saltar hasta la línea de datos
+        
+        # Convertir DOY (Day of Year) a fecha
+        df['Date'] = pd.to_datetime(df['YEAR'].astype(str) + '-' + df['DOY'].astype(str), format='%Y-%j')
+        
+        # Filtrar por rango de años
+        df = df[(df['YEAR'] >= start_year) & (df['YEAR'] <= end_year)]
+        
+        if df.empty:
+            logger.warning(f"No fallback data available for years {start_year}-{end_year}")
+            return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+        
+        # Renombrar columnas para coincidir con el formato esperado
+        df_processed = pd.DataFrame({
+            'Year': df['YEAR'],
+            'Month': df['Date'].dt.month,
+            'Max_Temperature_C': df['T2M_MAX'],
+            'Min_Temperature_C': df['T2M_MIN'],
+            'Avg_Temperature_C': df['T2M'],
+            'Precipitation_mm': df['PRECTOTCORR']
+        })
+        
+        # Limpiar datos: eliminar valores -999 (datos faltantes de la NASA)
+        df_processed = df_processed.replace(-999, np.nan).dropna()
+        
+        # Ordenar por año y mes
+        df_processed = df_processed.sort_values(['Year', 'Month']).reset_index(drop=True)
+        
+        logger.info(f"Successfully loaded {len(df_processed)} fallback records from Montevideo data")
+        return df_processed
+        
+    except Exception as e:
+        logger.error(f"Error loading fallback data: {str(e)}")
+        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+
+
 def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int) -> pd.DataFrame:
     """
     Obtiene datos climáticos históricos diarios de la NASA POWER API.
     
     La NASA POWER API proporciona datos meteorológicos globales con resolución espacial de 0.5°x0.625°
-    y temporal diaria. Esta función solicita específicamente temperatura máxima diaria (T2M_MAX) y 
-    precipitación total corregida (PRECTOTCORR) para análisis de riesgo climático.
-    
+    y temporal diaria. Esta función solicita temperatura máxima (T2M_MAX), temperatura mínima (T2M_MIN),
+    temperatura promedio (T2M) y precipitación total corregida (PRECTOTCORR) para análisis de riesgo climático.
+
     Args:
         lat: Latitud en grados decimales (-90 a 90)
         lon: Longitud en grados decimales (-180 a 180)
@@ -44,10 +114,12 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
             - Year: Año del registro
             - Month: Mes del registro (1-12)
             - Max_Temperature_C: Temperatura máxima diaria en Celsius
+            - Min_Temperature_C: Temperatura mínima diaria en Celsius
+            - Avg_Temperature_C: Temperatura promedio diaria en Celsius
             - Precipitation_mm: Precipitación diaria en milímetros
     """
     # DataFrame vacío como fallback en caso de error
-    empty_df = pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
+    empty_df = pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
     
     try:
         # URL base de la NASA POWER API para datos temporales diarios por punto
@@ -59,7 +131,7 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         
         # Parámetros de la solicitud HTTP
         params = {
-            'parameters': 'T2M_MAX,PRECTOTCORR',  # Variables climáticas solicitadas
+            'parameters': 'T2M_MAX,T2M_MIN,T2M,PRECTOTCORR',  # Variables climáticas solicitadas
             'community': 'AG',                      # Comunidad Agroclimatológica
             'longitude': lon,                      # Coordenada de longitud
             'latitude': lat,                       # Coordenada de latitud
@@ -68,7 +140,7 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
             'format': 'JSON'                       # Formato de respuesta
         }
         
-        print(f"Fetching NASA POWER data for coordinates ({lat}, {lon}) from {start_year} to {end_year}")
+        logger.info(f"Fetching NASA POWER data for coordinates ({lat}, {lon}) from {start_year} to {end_year}")
         
         # Implementación de reintentos para manejar fallos de red
         max_retries = 3
@@ -80,59 +152,71 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
                 break
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
-                    print(f"Failed to fetch NASA POWER data after {max_retries} attempts: {str(e)}")
-                    return empty_df
-                print(f"Attempt {attempt + 1} failed, retrying in 2 seconds...")
+                    logger.error(f"Failed to fetch NASA POWER data after {max_retries} attempts: {str(e)}")
+                    logger.info("Falling back to Montevideo data due to NASA API failure")
+                    return load_fallback_data(start_year, end_year)
+                logger.warning(f"Attempt {attempt + 1} failed, retrying in 2 seconds... Error: {str(e)}")
                 time.sleep(2)
         
         if response is None:
-            return empty_df
+            logger.error("No response received from NASA API")
+            logger.info("Falling back to Montevideo data due to no response")
+            return load_fallback_data(start_year, end_year)
             
         # Parse de la respuesta JSON de la NASA
         data = response.json()
         
         # Validación de la estructura de respuesta de la API
-        if 'messages' in data or 'message' in data or ('properties' not in data and 'parameter' not in data.get('properties', {})):
-            print(f"NASA API returned an error message or invalid structure. Keys: {data.keys()}")
-            return empty_df
+        if 'messages' in data and data['messages'] and len(data['messages']) > 0:
+            logger.error(f"NASA API returned error messages: {data['messages']}")
+            logger.info("Falling back to Montevideo data due to API error messages")
+            return load_fallback_data(start_year, end_year)
             
-        # Extracción de datos de series temporales - estructura específica de NASA POWER API
         if 'properties' not in data or 'parameter' not in data['properties']:
-            print("Invalid response format from NASA POWER API - no 'properties.parameter' key found")
-            return empty_df
+            logger.error(f"Invalid response format from NASA POWER API. Keys: {data.keys()}")
+            logger.info("Falling back to Montevideo data due to invalid response format")
+            return load_fallback_data(start_year, end_year)
         
         parameters = data['properties']['parameter']
         
-        # Extracción de datos específicos: T2M_MAX (temperatura máxima) y PRECTOTCORR (precipitación)
-        temp_data = parameters.get('T2M_MAX', {})
+        # Extracción de datos específicos: T2M_MAX, T2M_MIN, T2M (temperaturas) y PRECTOTCORR (precipitación)
+        temp_max_data = parameters.get('T2M_MAX', {})
+        temp_min_data = parameters.get('T2M_MIN', {})
+        temp_avg_data = parameters.get('T2M', {})
         precip_data = parameters.get('PRECTOTCORR', {})
         
-        if not temp_data or not precip_data:
-            print("Temperature or precipitation data not found in API response")
-            return empty_df
+        if not temp_max_data or not temp_min_data or not temp_avg_data or not precip_data:
+            logger.error("Temperature or precipitation data not found in API response")
+            logger.info("Falling back to Montevideo data due to missing climate data")
+            return load_fallback_data(start_year, end_year)
             
         # Conversión de datos JSON a DataFrame de Pandas
         records = []
-        for date_str, temp_value in temp_data.items():
-            if date_str in precip_data:
+        for date_str, temp_max_value in temp_max_data.items():
+            if date_str in temp_min_data and date_str in temp_avg_data and date_str in precip_data:
                 # Parse de fecha en formato YYYYMMDD a objeto datetime
                 date_obj = datetime.strptime(date_str, '%Y%m%d')
                 
                 # Conversión de valores (la NASA usa None para datos faltantes)
-                temp_celsius = temp_value if temp_value is not None else None
+                temp_max_celsius = temp_max_value if temp_max_value is not None else None
+                temp_min_celsius = temp_min_data[date_str] if temp_min_data[date_str] is not None else None
+                temp_avg_celsius = temp_avg_data[date_str] if temp_avg_data[date_str] is not None else None
                 precip_mm = precip_data[date_str] if precip_data[date_str] is not None else None
                 
                 # Creación de registro estructurado
                 records.append({
                     'Year': date_obj.year,
                     'Month': date_obj.month,
-                    'Max_Temperature_C': temp_celsius,
+                    'Max_Temperature_C': temp_max_celsius,
+                    'Min_Temperature_C': temp_min_celsius,
+                    'Avg_Temperature_C': temp_avg_celsius,
                     'Precipitation_mm': precip_mm
                 })
         
         if not records:
-            print("No valid data records found in API response")
-            return empty_df
+            logger.error("No valid data records found in API response")
+            logger.info("Falling back to Montevideo data due to empty data records")
+            return load_fallback_data(start_year, end_year)
         
         # Creación del DataFrame final
         df = pd.DataFrame(records)
@@ -143,13 +227,14 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         # Ordenamiento por año y mes para análisis temporal
         df = df.sort_values(['Year', 'Month']).reset_index(drop=True)
         
-        print(f"Successfully fetched {len(df)} records from NASA POWER API")
+        logger.info(f"Successfully fetched {len(df)} records from NASA POWER API")
         return df
         
     except Exception as e:
-        # Manejo de errores: retorna DataFrame vacío en lugar de lanzar excepción
-        print(f"Fatal Error fetching or processing NASA POWER data: {str(e)}")
-        return empty_df
+        # Manejo de errores: retorna datos de fallback en lugar de DataFrame vacío
+        logger.error(f"Fatal Error fetching or processing NASA POWER data: {str(e)}")
+        logger.info("Falling back to Montevideo data due to fatal error")
+        return load_fallback_data(start_year, end_year)
 
 def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -1066,7 +1151,7 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
                 raise ValueError("No valid alternatives found after validation")
             
             return {
-                "success": True,
+            "success": True,
                 "message": f"Generated {len(validated_alternatives)} Plan B alternatives using Gemini AI",
                 "alternatives": validated_alternatives,
                 "ai_model": "Gemini 2.0 Flash",
@@ -1079,7 +1164,7 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
                     "season": season
                 }
             }
-                
+        
         except (json.JSONDecodeError, ValueError) as e:
             print(f"JSON parsing failed: {str(e)}")
             # Enhanced fallback parsing
@@ -1096,7 +1181,7 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
                 }
             else:
                 raise ValueError("Failed to parse response and no alternatives found")
-    
+        
     except Exception as e:
         print(f"Error generating Plan B with Gemini: {str(e)}")
         return {
