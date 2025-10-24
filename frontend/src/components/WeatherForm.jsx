@@ -13,6 +13,8 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
   // Coordenadas por defecto para Montevideo, Uruguay (ubicación principal del proyecto)
   const [lat, setLat] = useState(-34.90);
   const [lon, setLon] = useState(-56.16);
+  // Estado para manejar errores de validación en la interfaz
+  const [validationErrors, setValidationErrors] = useState([]);
 
   // Configuración de opciones climáticas adversas - selección única
   const weatherOptions = [
@@ -80,14 +82,14 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     
     // Validar coordenadas
     if (!data.latitude || !data.longitude) {
-      errors.push('Ubicación requerida');
+      errors.push('Location required');
     } else if (data.latitude < -90 || data.latitude > 90 || data.longitude < -180 || data.longitude > 180) {
-      errors.push('Coordenadas fuera de rango válido');
+      errors.push('Invalid coordinates range');
     }
     
     // Validar fecha
     if (!data.date) {
-      errors.push('Fecha requerida');
+      errors.push('Date required');
     } else {
       const selectedDate = new Date(data.date);
       const today = new Date();
@@ -95,15 +97,15 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       oneYearFromNow.setFullYear(today.getFullYear() + 1);
       
       if (selectedDate < today) {
-        errors.push('La fecha no puede ser anterior a hoy');
+        errors.push('Date cannot be in the past');
       } else if (selectedDate > oneYearFromNow) {
-        errors.push('La fecha no puede ser más de un año en el futuro');
+        errors.push('Date cannot be more than one year in the future');
       }
     }
     
     // Validar condición climática
     if (!data.weatherConditions || data.weatherConditions.length === 0) {
-      errors.push('Condición climática requerida');
+      errors.push('Weather condition required');
     }
     
     return errors;
@@ -124,12 +126,15 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       };
       
       // Validar datos antes del envío
-      const validationErrors = validateFormData(payload);
-      if (validationErrors.length > 0) {
-        console.error('❌ Errores de validación:', validationErrors);
-        alert(`Errores encontrados:\n${validationErrors.join('\n')}`);
+      const errors = validateFormData(payload);
+      if (errors.length > 0) {
+        console.error('❌ Errores de validación:', errors);
+        setValidationErrors(errors);
         return;
       }
+      
+      // Limpiar errores si la validación es exitosa
+      setValidationErrors([]);
       
       // INFO: Registro de envío de formulario con datos completos
       console.info('📤 Enviando formulario con datos:', {
@@ -179,6 +184,14 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
             className="bg-slate-800 border border-slate-700 text-white text-base rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-4"
             required
           />
+          
+          {/* Informative note about date range */}
+          <div className="mt-2 text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+            <div className="flex items-center">
+              <span className="text-blue-400 mr-2">ℹ️</span>
+              <span><strong>Note:</strong> Predictions are available for up to 1 year in the future</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -242,6 +255,24 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
             '🔍 Analyze Historical Probability'
           )}
         </button>
+        
+        {/* Visualización de errores de validación */}
+        {validationErrors.length > 0 && (
+          <div className="mt-4 p-4 bg-red-900/20 border border-red-500 rounded-lg">
+            <div className="flex items-center mb-2">
+              <span className="text-red-400 text-lg mr-2">⚠️</span>
+              <h3 className="text-red-400 font-bold text-sm">Validation errors:</h3>
+            </div>
+            <ul className="text-red-300 text-sm space-y-1">
+              {validationErrors.map((error, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-red-400 mr-2">•</span>
+                  <span>{error}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </form>
   );

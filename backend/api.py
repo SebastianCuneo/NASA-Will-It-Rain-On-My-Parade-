@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Import logic module from same directory
 try:
-    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data, generate_plotly_visualizations
+    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data
 except ImportError as e:
     print(f"Error importing logic module: {e}")
     # Fallback functions if logic module is not found
@@ -34,14 +34,6 @@ except ImportError as e:
         except Exception as e:
             raise Exception(f"Error loading data: {str(e)}")
     
-    def generate_plotly_visualizations(historical_data) -> Dict[str, Any]:
-        """Fallback function for plotly visualizations"""
-        return {
-            "success": True,
-            "message": "Plotly visualizations not available (fallback mode)",
-            "charts": []
-        }
-
     def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         if monthly_data.empty:
             raise ValueError("No data provided")
@@ -376,20 +368,7 @@ async def get_risk_analysis_working(request: RiskRequest):
         climate_data = get_climate_trend_data(historical_data)
         print(f"Climate trend completed: {climate_data.get('climate_trend', 'N/A')[:50]}...")
         
-        # 4. Generación de visualizaciones Plotly
-        print("Generating visualizations...")
-        try:
-            visualizations = generate_plotly_visualizations(historical_data)
-            print(f"Visualizations completed: {visualizations.get('success', 'N/A')}")
-        except Exception as viz_error:
-            print(f"Visualization error: {viz_error}")
-            visualizations = {
-                "success": False,
-                "error": str(viz_error),
-                "charts": []
-            }
-        
-        # 5. Generación del Plan B simple
+        # 4. Generación del Plan B simple
         plan_b = {
             "success": True,
             "alternatives": [
@@ -403,14 +382,13 @@ async def get_risk_analysis_working(request: RiskRequest):
         
         print("All calculations completed successfully")
         
-        # 6. Devolver la respuesta consolidada
+        # 5. Devolver la respuesta consolidada
         return {
             "success": True,
             "risk_analysis": risk_analysis,
             "plan_b": plan_b,
             "climate_trend": climate_data['climate_trend'], 
-            "plot_data": climate_data['plot_data'],
-            "visualizations": visualizations
+            "plot_data": climate_data['plot_data']
         }
         
     except Exception as e:

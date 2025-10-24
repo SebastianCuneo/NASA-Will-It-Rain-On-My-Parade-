@@ -2,6 +2,12 @@
  * WeatherResults Component - Display Weather Risk Assessment Results
  * NASA Weather Risk Navigator
  * Adapted from original HTML design with mock data
+ * 
+ * FUNCIÓN PRINCIPAL:
+ * - Visualiza análisis de riesgo climático basado en datos de NASA API
+ * - Evalúa compatibilidad de actividades con condiciones meteorológicas
+ * - Genera alternativas (Plan B) cuando las actividades no son viables
+ * - Muestra impacto del cambio climático comparando datos históricos vs actuales
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -11,7 +17,7 @@ const WeatherResults = ({ data, isNightMode }) => {
   const [planBLoading, setPlanBLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
-  // Mock data for weather conditions
+  // Datos mock para condiciones meteorológicas - usado como fallback cuando no hay datos de API
   const mockData = {
     wet: { text: 'rainy', percentage: 18.2, pastPercentage: 11.5, advice: "don't forget an umbrella." },
     hot: { text: 'hot', percentage: 25.7, pastPercentage: 19.1, advice: "stay hydrated." },
@@ -21,6 +27,9 @@ const WeatherResults = ({ data, isNightMode }) => {
     uv: { text: 'high UV radiation', percentage: 60.1, pastPercentage: 52.3, advice: "use sunscreen." }
   };
 
+  // Base de datos de actividades con sus preferencias meteorológicas
+  // dislikes: condiciones que hacen la actividad menos viable
+  // likes: condiciones que favorecen la actividad
   const activitiesDB = {
     surf: { name: "Surfing", icon: "🏄", dislikes: ['cold', 'wet'], likes: ['windy'] },
     beach: { name: "Beach Day", icon: "🏖️", dislikes: ['wet', 'cold', 'windy'] },
@@ -30,9 +39,10 @@ const WeatherResults = ({ data, isNightMode }) => {
     picnic: { name: "Picnic", icon: "🧺", dislikes: ['wet', 'windy', 'cold'] }
   };
 
-  // Calculate results - Use API data if available, otherwise fallback to mock data
+  // Extracción de datos del prop - contiene tanto datos de API como información del formulario
   const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk, plan_b } = data;
   
+  // Variables para acumular cálculos de riesgo meteorológico
   let totalPercentage = 0, totalPastPercentage = 0, emojis = '';
   let summaryParts = [], adviceParts = [];
   
@@ -43,15 +53,15 @@ const WeatherResults = ({ data, isNightMode }) => {
   console.log('WeatherResults - cold_risk:', cold_risk);
   console.log('WeatherResults - weatherConditions:', weatherConditions);
   
-  // Use real API data if available
+  // LÓGICA PRINCIPAL: Priorizar datos reales de API sobre datos mock
   if (apiResults && temperature_risk && precipitation_risk && cold_risk) {
     console.log('WeatherResults - Using real API data');
-    // Calculate based on actual API results
+    // Extracción de probabilidades de riesgo de los datos de API
     const tempRisk = temperature_risk.probability;
     const precipRisk = precipitation_risk.probability;
     const coldRiskValue = cold_risk.probability;
     
-    // Map weather conditions to actual risk data
+    // Mapeo de condiciones meteorológicas a datos de riesgo reales
     weatherConditions.forEach(c => {
       if (c === 'hot') {
         totalPercentage += tempRisk;
@@ -81,7 +91,7 @@ const WeatherResults = ({ data, isNightMode }) => {
     totalPastPercentage = totalPercentage * 0.8; // Rough estimate for past data
   } else {
     console.log('WeatherResults - Using mock data fallback');
-    // Fallback to mock data
+    // Fallback a datos mock cuando no hay datos de API disponibles
     weatherConditions.forEach(c => {
       const conditionData = mockData[c];
       totalPercentage += conditionData.percentage;
@@ -92,10 +102,11 @@ const WeatherResults = ({ data, isNightMode }) => {
     });
   }
 
+  // Cálculo de promedios para determinar nivel de riesgo general
   const avgPercentage = totalPercentage / weatherConditions.length;
   const avgPastPercentage = totalPastPercentage / weatherConditions.length;
   
-  // Determine risk level with NASA colors and proper contrast
+  // Determinación del nivel de riesgo con colores NASA y contraste apropiado
   let riskLevel, riskColorStyle;
   if (avgPercentage < 20) { 
     riskLevel = 'Low'; 
@@ -120,13 +131,14 @@ const WeatherResults = ({ data, isNightMode }) => {
     }; 
   }
 
-  // Check activity compatibility
+  // FUNCIÓN CLAVE: Evaluar compatibilidad entre actividad y condiciones meteorológicas
   const checkActivityCompatibility = (conditions, activityId) => {
     if (!activityId) return null;
     
     const currentActivity = activitiesDB[activityId];
     let badCondition = null;
 
+    // Buscar condiciones meteorológicas que puedan afectar negativamente la actividad
     for (const condition of conditions) {
       if (currentActivity.dislikes.includes(condition)) {
         badCondition = condition;
@@ -135,27 +147,27 @@ const WeatherResults = ({ data, isNightMode }) => {
     }
     
     if (badCondition) {
-        // Get actual probability for the condition
+        // Obtener probabilidad real para la condición problemática
         let actualProbability = 0;
         if (apiResults && temperature_risk && precipitation_risk && cold_risk) {
-          // Use real API data
+          // Usar datos reales de API cuando están disponibles
           if (badCondition === 'hot') {
             actualProbability = temperature_risk.probability;
           } else if (badCondition === 'wet') {
             actualProbability = precipitation_risk.probability;
           } else if (badCondition === 'cold') {
-            // Use real cold risk data from backend
+            // Usar datos reales de riesgo de frío del backend
             actualProbability = cold_risk.probability;
           } else {
-            // Use mock data for other conditions
+            // Usar datos mock para otras condiciones
             actualProbability = mockData[badCondition].percentage;
           }
         } else {
-          // Use mock data
+          // Usar datos mock como fallback
           actualProbability = mockData[badCondition].percentage;
         }
         
-        // Generate appropriate message based on actual probability
+        // Generar mensaje apropiado basado en la probabilidad real
         let probabilityText = '';
         if (actualProbability < 10) {
           probabilityText = 'low probability';
@@ -166,7 +178,7 @@ const WeatherResults = ({ data, isNightMode }) => {
         }
         
         return { 
-          isGood: actualProbability < 15, // Consider it good if probability is low
+          isGood: actualProbability < 15, // Considerar buena si la probabilidad es baja
           name: currentActivity.name, 
           icon: actualProbability < 15 ? '👍' : '👎', 
           message: actualProbability < 15 
@@ -194,14 +206,14 @@ const WeatherResults = ({ data, isNightMode }) => {
     return suggestions;
   };
 
-  // Memoize compatibility to avoid recalculations that retrigger effects every render
+  // Memoización de compatibilidad para evitar recálculos que retriggeren efectos en cada render
   const activityCompatibility = useMemo(() => {
     return checkActivityCompatibility(weatherConditions, activity);
-    // Dependencies reflect the inputs used inside checkActivityCompatibility
+    // Dependencias reflejan las entradas usadas dentro de checkActivityCompatibility
   }, [weatherConditions, activity, apiResults, temperature_risk, precipitation_risk, cold_risk]);
 
-  // Generate Plan B if activity is not compatible
-  // Avoid flicker: only load Plan B once per scenario and avoid resetting state on every render
+  // GENERACIÓN DE PLAN B: Solo cuando la actividad no es compatible
+  // Evitar parpadeo: cargar Plan B solo una vez por escenario y evitar resetear estado en cada render
   const planBInitializedRef = useRef(false);
   useEffect(() => {
     const needsAlternatives = activityCompatibility && !activityCompatibility.isGood;
@@ -216,7 +228,7 @@ const WeatherResults = ({ data, isNightMode }) => {
     // If already initialized with current scenario, skip
     if (planBInitializedRef.current && (planBData && planBData.length > 0)) return;
 
-    // Prefer backend-provided Plan B when available
+    // Priorizar Plan B proporcionado por el backend cuando esté disponible
     if (plan_b && plan_b.success && plan_b.alternatives && plan_b.alternatives.length > 0) {
       setPlanBData(plan_b.alternatives);
       setPlanBLoading(false);
@@ -235,7 +247,7 @@ const WeatherResults = ({ data, isNightMode }) => {
     return () => clearTimeout(timeout);
   }, [activityCompatibility?.isGood, plan_b, weatherConditions, activity, planBLoading, planBData]);
 
-  // Function to regenerate Plan B
+  // Función para regenerar Plan B mediante llamada al backend
   const regeneratePlanB = async () => {
     if (!activityCompatibility || activityCompatibility.isGood) return;
     
@@ -288,7 +300,7 @@ const WeatherResults = ({ data, isNightMode }) => {
     }
   };
 
-  // Dynamic Plan B generation based on weather conditions
+  // Generación dinámica de Plan B basada en condiciones meteorológicas
   const generateDynamicPlanB = (conditions, originalActivity) => {
     const planBOptions = [];
     
