@@ -2,7 +2,22 @@
 The Parade Planner - Core Logic Module
 NASA Space Apps Challenge MVP
 Enhanced with NASA POWER API integration
+
+ESTRUCTURA DEL ARCHIVO:
+=======================
+1. IMPORTS Y CONFIGURACIÓN
+2. FUNCIONES DE DATOS DE FALLBACK (Montevideo)
+3. FUNCIONES DE NASA POWER API
+4. FUNCIONES DE CÁLCULO DE RIESGO CLIMÁTICO
+5. FUNCIONES DE ANÁLISIS DE TENDENCIAS CLIMÁTICAS
+6. FUNCIONES DE GENERACIÓN DE PLAN B (Gemini AI)
+7. FUNCIONES DE VISUALIZACIÓN (Plotly)
+8. FUNCIONES DE UTILIDADES Y VALIDACIÓN
 """
+
+# =============================================================================
+# 1. IMPORTS Y CONFIGURACIÓN
+# =============================================================================
 
 import pandas as pd
 import numpy as np
@@ -36,6 +51,11 @@ except ImportError:
     GEMINI_AVAILABLE = False
     print("Warning: google-generativeai not installed. Plan B generation will be disabled.")
 
+# =============================================================================
+# 2. FUNCIONES DE DATOS DE FALLBACK (Montevideo)
+# =============================================================================
+# Estas funciones manejan los datos locales de Montevideo como respaldo
+# cuando la NASA POWER API no está disponible o falla.
 
 def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
     """
@@ -93,6 +113,12 @@ def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error loading fallback data: {str(e)}")
         return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+
+# =============================================================================
+# 3. FUNCIONES DE NASA POWER API
+# =============================================================================
+# Estas funciones manejan la integración con la NASA POWER API para obtener
+# datos climáticos históricos con validación, reintentos y manejo de errores.
 
 def validate_coordinates(lat: float, lon: float) -> bool:
     """
@@ -344,6 +370,12 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         logger.error(f"Unexpected error fetching or processing NASA POWER data: {str(e)}")
         logger.info("Falling back to Montevideo data due to unexpected error")
         return load_fallback_data(start_year, end_year)
+
+# =============================================================================
+# 4. FUNCIONES DE CÁLCULO DE RIESGO CLIMÁTICO
+# =============================================================================
+# Estas funciones implementan la metodología P90 para calcular probabilidades
+# de condiciones climáticas adversas (calor extremo, precipitación, frío).
 
 def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -678,6 +710,12 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
         'activity': activity
     }
 
+# =============================================================================
+# 5. FUNCIONES DE ANÁLISIS DE TENDENCIAS CLIMÁTICAS
+# =============================================================================
+# Estas funciones analizan tendencias de cambio climático y patrones
+# históricos para proporcionar contexto sobre cambios a largo plazo.
+
 def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: int = 30) -> Dict[str, Any]:
     """
     Analiza tendencias de cambio climático comparando el año más reciente con el promedio histórico.
@@ -761,6 +799,12 @@ def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: i
         'difference': round(difference, 2),
         'message': message
     }
+
+# =============================================================================
+# 6. FUNCIONES DE GENERACIÓN DE PLAN B (Gemini AI)
+# =============================================================================
+# Estas funciones utilizan Google Gemini AI para generar alternativas
+# inteligentes cuando las condiciones climáticas son adversas.
 
 def parse_fallback_response(response_text: str) -> list:
     
@@ -1300,88 +1344,11 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
             "error_type": type(e).__name__
         }
 
-
-def preprocess_data_for_p90(mock_data_df: pd.DataFrame, month_to_filter: int) -> pd.DataFrame:
-    """
-    Limpia y filtra el DataFrame histórico por el mes específico para el cálculo del P90.
-    
-    Args:
-        mock_data_df: DataFrame crudo con datos históricos
-        month_to_filter: Mes a filtrar (1-12)
-        
-    Returns:
-        DataFrame limpio y filtrado por el mes especificado
-    """
-    try:
-        # 1. Limpieza de Datos: Reemplazar valores 'no-data' (-999.0) por NaN
-        print(f"Preprocessing data for month {month_to_filter}")
-        
-        # Reemplazar valores de 'no-data' por NaN
-        df_cleaned = mock_data_df.copy()
-        df_cleaned = df_cleaned.replace(-999.0, np.nan)
-        df_cleaned = df_cleaned.replace(-999, np.nan)
-        
-        # Eliminar filas con valores NaN
-        df_cleaned = df_cleaned.dropna()
-        
-        print(f"Data after cleaning: {len(df_cleaned)} records")
-        
-        # 2. Conversión de Columna: Convertir 'Fecha' a datetime
-        if 'Fecha' in df_cleaned.columns:
-            df_cleaned['Fecha'] = pd.to_datetime(df_cleaned['Fecha'])
-            print("OK: Date column converted to datetime")
-        else:
-            print("WARNING: 'Fecha' column not found, checking for alternative date columns")
-            # Buscar columnas de fecha alternativas
-            date_columns = [col for col in df_cleaned.columns if 'date' in col.lower() or 'fecha' in col.lower()]
-            if date_columns:
-                df_cleaned[date_columns[0]] = pd.to_datetime(df_cleaned[date_columns[0]])
-                print(f"OK: Alternative date column '{date_columns[0]}' converted to datetime")
-            else:
-                print("ERROR: No date column found")
-                return pd.DataFrame()
-        
-        # 3. Filtrado Mensual Crítico: Filtrar por el mes especificado
-        if 'Fecha' in df_cleaned.columns:
-            df_filtered = df_cleaned[df_cleaned['Fecha'].dt.month == month_to_filter].copy()
-        else:
-            # Si no hay columna 'Fecha', usar la primera columna de fecha encontrada
-            date_columns = [col for col in df_cleaned.columns if 'date' in col.lower() or 'fecha' in col.lower()]
-            if date_columns:
-                df_filtered = df_cleaned[df_cleaned[date_columns[0]].dt.month == month_to_filter].copy()
-            else:
-                print("ERROR: Cannot filter by month - no date column available")
-                return pd.DataFrame()
-        
-        print(f"Filtered for month {month_to_filter}: {len(df_filtered)} records")
-        
-        # 4. Eliminación de Columnas: Remover columnas no esenciales
-        columns_to_remove = ['Humedad_Relativa', 'humedad', 'humidity']
-        for col in columns_to_remove:
-            if col in df_filtered.columns:
-                df_filtered = df_filtered.drop(columns=[col])
-                print(f"Removed column: {col}")
-        
-        # Mantener solo columnas esenciales para el cálculo de riesgo
-        essential_columns = ['Fecha', 'Temperatura', 'Precipitacion', 'Year', 'Month']
-        available_columns = [col for col in essential_columns if col in df_filtered.columns]
-        
-        if available_columns:
-            df_filtered = df_filtered[available_columns]
-            print(f"OK: Kept essential columns: {available_columns}")
-        
-        # Verificar que tenemos datos válidos
-        if df_filtered.empty:
-            print(f"ERROR: No data available for month {month_to_filter}")
-            return pd.DataFrame()
-        
-        print(f"OK: Preprocessing completed: {len(df_filtered)} records for month {month_to_filter}")
-        return df_filtered
-        
-    except Exception as e:
-        print(f"ERROR: Error in preprocess_data_for_p90: {str(e)}")
-        return pd.DataFrame()
-
+# =============================================================================
+# 8. FUNCIONES DE UTILIDADES Y VALIDACIÓN
+# =============================================================================
+# Estas funciones proporcionan utilidades generales, validaciones
+# y funciones auxiliares para el funcionamiento del sistema.
 
 if __name__ == "__main__":
     # Run verification when script is executed directly
