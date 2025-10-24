@@ -6,7 +6,6 @@
 import React, { useState } from 'react';
 import './App.css';
 import WeatherForm from './components/WeatherForm';
-import ClimateVisualizations from './components/ClimateVisualizations.jsx';
 import WeatherResults from './components/WeatherResults';
 import useTheme from './hooks/useTheme';
 import useWeatherAPI from './hooks/useWeatherAPI';
@@ -176,7 +175,6 @@ function App() {
                 <>
                   {console.info('📊 Results updated', { 
                     hasResults: !!results,
-                    hasVisualizations: !!results.visualizations,
                     hasClimateTrend: !!results.climate_trend
                   })}
                   {/* 2. RISKS AND PLAN B (Existing Component) */}
@@ -184,15 +182,6 @@ function App() {
                     data={results}
                     isNightMode={isNightMode}
                   />
-                  
-                  {/* ========================================================= */}
-                  {/* 3. INTERACTIVE CLIMATE VISUALIZATIONS */}
-                  {results.visualizations && (
-                    <ClimateVisualizations 
-                      visualizations={results.visualizations}
-                      isNightMode={isNightMode}
-                    />
-                  )}
                 </>
               )}
 

@@ -1,7 +1,22 @@
 /**
  * MapSelector Component - Interactive Map for Location Selection
  * NASA Weather Risk Navigator
- * Replaces city search with interactive map
+ * 
+ * FUNCIÓN PRINCIPAL:
+ * - Proporciona mapa interactivo para selección de ubicación
+ * - Permite hacer clic en el mapa para obtener coordenadas
+ * - Incluye geolocalización automática del usuario
+ * - Reemplaza búsqueda de ciudades con selección visual
+ * 
+ * CONEXIONES:
+ * - ❌ NO se conecta al backend
+ * - ✅ Usa OpenStreetMap (servicio externo gratuito)
+ * - ✅ Usa API de geolocalización del navegador
+ * - ✅ Comunica coordenadas al componente padre via callback
+ * 
+ * SERVICIOS EXTERNOS:
+ * - OpenStreetMap tiles: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+ * - Geolocation API del navegador (navigator.geolocation)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -9,7 +24,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix for default markers in react-leaflet
+// CONFIGURACIÓN: Arreglar iconos por defecto de react-leaflet
+// Esto es necesario porque react-leaflet tiene problemas con los iconos por defecto
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
@@ -17,7 +33,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
-// Custom marker icon
+// ICONO PERSONALIZADO: Configurar marcador visual para el mapa
 const customIcon = new L.Icon({
   iconUrl: require('leaflet/dist/images/marker-icon.png'),
   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
@@ -28,37 +44,46 @@ const customIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// Component to handle map clicks
+// COMPONENTE: Manejador de eventos de clic en el mapa
+// Este componente usa el hook useMapEvents para capturar clics del usuario
 function MapClickHandler({ onLocationSelect }) {
   useMapEvents({
     click: (e) => {
+      // Extraer coordenadas del evento de clic
       const { lat, lng } = e.latlng;
+      // Comunicar coordenadas al componente padre
       onLocationSelect(lat, lng);
     },
   });
-  return null;
+  return null; // Este componente no renderiza nada visual
 }
 
 const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initialLon = -56.16 }) => {
+  // ESTADO: Ubicación seleccionada (por defecto Montevideo, Uruguay)
   const [selectedLocation, setSelectedLocation] = useState({
     lat: initialLat,
     lng: initialLon
   });
+  // ESTADO: Control de carga del mapa
   const [isMapReady, setIsMapReady] = useState(false);
 
-  // Initialize map
+  // INICIALIZACIÓN: Marcar mapa como listo después del mount
   useEffect(() => {
     setIsMapReady(true);
   }, []);
 
+  // FUNCIÓN: Manejar selección de ubicación desde clic en mapa
   const handleLocationSelect = (lat, lng) => {
     const newLocation = { lat, lng };
     setSelectedLocation(newLocation);
+    // Comunicar nueva ubicación al componente padre
     onLocationSelect(lat, lng);
   };
 
+  // FUNCIÓN: Obtener ubicación actual del usuario usando geolocalización
   const handleCurrentLocation = () => {
     if (navigator.geolocation) {
+      // Usar API de geolocalización del navegador
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
@@ -74,6 +99,7 @@ const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initi
     }
   };
 
+  // LOADING: Mostrar spinner mientras el mapa se carga
   if (!isMapReady) {
     return (
       <div className="w-full h-96 bg-slate-800 rounded-lg flex items-center justify-center">
@@ -87,8 +113,9 @@ const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initi
 
   return (
     <div className="space-y-4">
-      {/* Map Controls */}
+      {/* CONTROLES: Botones y display de ubicación seleccionada */}
       <div className="flex flex-col sm:flex-row gap-3">
+        {/* BOTÓN: Geolocalización automática */}
         <button
           type="button"
           onClick={handleCurrentLocation}
@@ -101,12 +128,13 @@ const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initi
           Use My Location
         </button>
         
+        {/* DISPLAY: Mostrar coordenadas seleccionadas */}
         <div className="flex-1 text-sm text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
           <strong className="text-slate-300">📍 Selected:</strong> {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
         </div>
       </div>
 
-      {/* Interactive Map */}
+      {/* MAPA INTERACTIVO: Contenedor principal del mapa */}
       <div className="w-full h-96 rounded-lg overflow-hidden border border-slate-700">
         <MapContainer
           center={[selectedLocation.lat, selectedLocation.lng]}
@@ -114,11 +142,13 @@ const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initi
           style={{ height: '100%', width: '100%' }}
           className="z-0"
         >
+          {/* TILES: Usar OpenStreetMap como fuente de datos del mapa */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
+          {/* MARCADOR: Mostrar ubicación seleccionada */}
           <Marker 
             position={[selectedLocation.lat, selectedLocation.lng]} 
             icon={customIcon}
@@ -132,11 +162,12 @@ const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initi
             </Popup>
           </Marker>
           
+          {/* MANEJADOR: Capturar clics del usuario en el mapa */}
           <MapClickHandler onLocationSelect={handleLocationSelect} />
         </MapContainer>
       </div>
 
-      {/* Instructions */}
+      {/* INSTRUCCIONES: Guía de uso para el usuario */}
       <div className="text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
         <strong className="text-slate-300">🗺️ Instructions:</strong> Click anywhere on the map to select your location, or use "Use My Location" to automatically detect your current position.
       </div>
