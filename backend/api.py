@@ -1,7 +1,6 @@
 """
 NASA Weather Risk Navigator - Backend API
 NASA Space Apps Challenge - FastAPI Backend
-Refactored for React Frontend Integration
 """
 
 from fastapi import FastAPI, HTTPException
@@ -16,7 +15,7 @@ from datetime import datetime
 
 # Import logic module from same directory
 try:
-    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data, generate_plotly_visualizations
+    from logic import load_historical_data, calculate_heat_risk, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data, generate_plotly_visualizations
 except ImportError as e:
     print(f"Error importing logic module: {e}")
     # Fallback functions if logic module is not found
@@ -34,7 +33,7 @@ except ImportError as e:
         except Exception as e:
             raise Exception(f"Error loading data: {str(e)}")
     
-    def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+    def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         if monthly_data.empty:
             raise ValueError("No data provided")
         if 'Max_Temperature_C' not in monthly_data.columns:
@@ -192,7 +191,7 @@ async def get_risk_analysis(request: RiskRequest):
 
         # 3. Análisis de Riesgo P90
         print("Calculating risk analysis...")
-        risk_analysis = calculate_adverse_probability(historical_data)
+        risk_analysis = calculate_heat_risk(historical_data)
         print(f"Risk analysis completed: {risk_analysis.get('risk_level', 'N/A')}")
 
         # 4. Análisis de Tendencia Climática 
@@ -259,7 +258,7 @@ async def test_simple():
         })
         
         # Probar funciones
-        risk_analysis = calculate_adverse_probability(test_data)
+        risk_analysis = calculate_heat_risk(test_data)
         climate_data = get_climate_trend_data(test_data)
         visualizations = generate_plotly_visualizations(test_data)
         
@@ -424,7 +423,7 @@ async def get_risk_analysis_working(request: RiskRequest):
 
         # 2. Análisis de Riesgo P90
         print("Calculating risk analysis...")
-        risk_analysis = calculate_adverse_probability(historical_data)
+        risk_analysis = calculate_heat_risk(historical_data)
         print(f"Risk analysis completed: {risk_analysis.get('risk_level', 'N/A')}")
 
         # 3. Análisis de Tendencia Climática 
@@ -473,7 +472,7 @@ async def test_endpoint():
         # Test with March data using default Montevideo coordinates
         result = load_historical_data(3, -34.90, -56.16)
         monthly_data = result['data']
-        risk_results = calculate_adverse_probability(monthly_data)
+        risk_results = calculate_heat_risk(monthly_data)
         
         return {
             "status": "success",

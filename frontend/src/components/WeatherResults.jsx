@@ -55,8 +55,6 @@ const WeatherResults = ({ data, isNightMode }) => {
   
   // LÓGICA PRINCIPAL: Priorizar datos reales de API sobre datos mock
   if (apiResults && temperature_risk && precipitation_risk && cold_risk) {
-    console.log('WeatherResults - Using real API data');
-    // Extracción de probabilidades de riesgo de los datos de API
     const tempRisk = temperature_risk.probability;
     const precipRisk = precipitation_risk.probability;
     const coldRiskValue = cold_risk.probability;

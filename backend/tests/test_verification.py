@@ -12,7 +12,7 @@ from datetime import datetime
 # Add parent directory to path to import logic module
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk
+from logic import load_historical_data, calculate_heat_risk, calculate_precipitation_risk, calculate_cold_risk
 
 def create_mock_data_for_testing():
     """
@@ -97,7 +97,7 @@ def test_percentile_calculation():
     print(f"Percentil 90 manual: {manual_percentile:.1f}°C")
     
     # Verificar que la función usa umbral fijo (30°C según el código actual)
-    risk_analysis = calculate_adverse_probability(test_data)
+    risk_analysis = calculate_heat_risk(test_data)
     print(f"Umbral usado en función: {risk_analysis['risk_threshold']:.1f}°C")
     print(f"Probabilidad calculada: {risk_analysis['probability']:.1f}%")
     print(f"Nivel de riesgo: {risk_analysis['risk_level']}")
@@ -127,7 +127,7 @@ def test_risk_level_mapping():
         temps = [35.0] * adverse_days + [25.0] * (total_days - adverse_days)
         test_data = pd.DataFrame({'Max_Temperature_C': temps})
         
-        result = calculate_adverse_probability(test_data)
+        result = calculate_heat_risk(test_data)
         actual_level = result['risk_level']
         actual_prob = result['probability']
         
@@ -178,7 +178,7 @@ def test_critical_cases_e2e():
         print("-" * 50)
         
         # Calcular riesgos
-        temp_risk = calculate_adverse_probability(case['data'])
+        temp_risk = calculate_heat_risk(case['data'])
         precip_risk = calculate_precipitation_risk(case['data'])
         cold_risk = calculate_cold_risk(case['data'])
         
@@ -235,7 +235,7 @@ def test_nasa_data_integration():
             print(f"🌧️  Precipitación: {real_data['Precipitation_mm'].min():.1f}mm - {real_data['Precipitation_mm'].max():.1f}mm")
             
             # Calcular riesgos con datos reales
-            temp_risk = calculate_adverse_probability(real_data)
+            temp_risk = calculate_heat_risk(real_data)
             precip_risk = calculate_precipitation_risk(real_data)
             cold_risk = calculate_cold_risk(real_data)
             
