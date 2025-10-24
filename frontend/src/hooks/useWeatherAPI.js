@@ -49,10 +49,10 @@ const useWeatherAPI = () => {
     
       // INFO: Log del payload antes del envío al backend
       console.info('🌐 API Payload:', apiPayload);
-      console.debug('🌐 API URL: http://localhost:8000/api/visualizations-only');
+      console.debug('🌐 API URL: http://localhost:8000/api/risk-working');
       
-      // Llamada al backend FastAPI usando endpoint de visualizaciones
-      const response = await fetch('http://localhost:8000/api/visualizations-only', {
+      // Llamada al backend FastAPI usando endpoint completo con datos de NASA
+      const response = await fetch('http://localhost:8000/api/risk-working', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,63 +71,42 @@ const useWeatherAPI = () => {
       // INFO: Log de la respuesta del backend
       console.info('🌐 API Response received:', { 
         success: apiData.success,
-        hasVisualizations: !!apiData.visualizations,
+        hasRiskAnalysis: !!apiData.risk_analysis,
+        hasPlanB: !!apiData.plan_b,
         responseSize: JSON.stringify(apiData).length
       });
       
-      // Extraer datos de visualizaciones de la respuesta API
-      const visualizations = apiData.visualizations;
+      // Extraer datos completos de la respuesta API del endpoint /api/risk-working
+      const riskAnalysis = apiData.risk_analysis;
+      const planB = apiData.plan_b;
+      const climateTrend = apiData.climate_trend;
+      const plotData = apiData.plot_data || [];
       
-      // Crear datos mock para otros componentes ya que este endpoint solo proporciona visualizaciones
+      // Usar datos reales del backend en lugar de datos mock
       const temperatureRisk = {
-        probability: 25.0,
-        risk_level: "MODERATE",
-        status_message: "Moderate risk detected",
-        risk_threshold: 28.0
+        probability: riskAnalysis?.probability || 0,
+        risk_level: riskAnalysis?.risk_level || "UNKNOWN",
+        status_message: riskAnalysis?.status_message || "No data available",
+        risk_threshold: riskAnalysis?.risk_threshold || 0,
+        total_observations: riskAnalysis?.total_observations || 0
       };
-      const precipitationRisk = temperatureRisk;
-      const coldRisk = temperatureRisk;
-      const planB = {
-        success: true,
-        alternatives: [
-         "Plan A: Main activity with precautions",
-         "Plan B: Alternative indoor activity",
-         "Plan C: Postpone for better weather"
-        ],
-        ai_model: "Simple",
-        message: "Plans generated without AI"
-      };
-      const plotData = [];
-      const climateTrend = visualizations?.climate_trend || "Climate trend analysis completed";
+      
+      // Para precipitación y frío, usar los mismos datos por ahora (el backend actual solo calcula temperatura)
+      const precipitationRisk = { ...temperatureRisk };
+      const coldRisk = { ...temperatureRisk };
       
       // Combinar datos de API con datos del formulario para distribución a componentes
       const combinedData = {
         ...data,
         apiResults: apiData,
-        temperature_risk: {
-          probability: temperatureRisk.probability,
-          risk_level: temperatureRisk.risk_level,
-          status_message: temperatureRisk.status_message,
-          risk_threshold: temperatureRisk.risk_threshold
-        },
-        precipitation_risk: {
-          probability: precipitationRisk.probability,
-          risk_level: precipitationRisk.risk_level,
-          status_message: precipitationRisk.status_message,
-          risk_threshold: precipitationRisk.risk_threshold
-        },
-        cold_risk: {
-          probability: coldRisk.probability,
-          risk_level: coldRisk.risk_level,
-          status_message: coldRisk.status_message,
-          risk_threshold: coldRisk.risk_threshold
-        },
+        temperature_risk: temperatureRisk,
+        precipitation_risk: precipitationRisk,
+        cold_risk: coldRisk,
         plan_b: planB,
         
-        // Datos de visualizaciones y análisis climático
+        // Datos de análisis climático
         plot_data: plotData,
-        climate_trend: climateTrend,
-        visualizations: visualizations
+        climate_trend: climateTrend
       };
 
       setResults(combinedData);
@@ -140,7 +119,7 @@ const useWeatherAPI = () => {
       console.error('🌐 API Error:', { 
         message: error.message, 
         status: error.status,
-        endpoint: 'visualizations-only' 
+        endpoint: 'risk-working' 
       });
       showTemporaryMessage('Error connecting to weather service. Using offline data.', 'warning');
       // Fallback a datos mock en caso de error
