@@ -1210,6 +1210,155 @@ def parse_fallback_response(response_text: str) -> list:
         "description": "Gráfico de análisis de riesgo que muestra P90 vs umbrales de riesgo de calor con áreas coloreadas"
     }
 
+def generate_fallback_plan_b(
+    activity: str,
+    weather_condition: str,
+    risk_level: str,
+    location: str = "Montevideo, Uruguay",
+    season: str = "Summer"
+) -> Dict[str, Any]:
+    """
+    Generate fallback Plan B suggestions when Gemini AI is not available.
+    
+    Args:
+        activity: Type of activity (beach, picnic, running, etc.)
+        weather_condition: Weather condition causing the risk (cold, hot, rainy, etc.)
+        risk_level: Risk level (HIGH, MODERATE, LOW, MINIMAL)
+        location: Location name for context
+        season: Current season
+        
+    Returns:
+        Dict with Plan B suggestions
+    """
+    # Fallback alternatives based on activity and weather condition
+    fallback_alternatives = {
+        "beach": {
+            "cold": [
+                {
+                    "title": "Indoor Pool Complex",
+                    "description": "Visit a heated indoor pool or water park",
+                    "type": "indoor",
+                    "reason": "Warm water activities without cold weather exposure",
+                    "tips": "Bring swimwear and check opening hours"
+                },
+                {
+                    "title": "Museo del Mar",
+                    "description": "Explore marine life and ocean exhibits",
+                    "type": "indoor",
+                    "reason": "Ocean-themed experience in a warm environment",
+                    "tips": "Great for families and educational"
+                },
+                {
+                    "title": "Thermal Baths",
+                    "description": "Relax in natural hot springs",
+                    "type": "mixed",
+                    "reason": "Warm water therapy in natural setting",
+                    "tips": "Bring towels and check temperature requirements"
+                }
+            ],
+            "rainy": [
+                {
+                    "title": "Shopping Mall",
+                    "description": "Visit Punta Carretas or Montevideo Shopping",
+                    "type": "indoor",
+                    "reason": "Stay dry while enjoying shopping and dining",
+                    "tips": "Check for special events or sales"
+                },
+                {
+                    "title": "Cinema Complex",
+                    "description": "Watch latest movies in comfortable theaters",
+                    "type": "indoor",
+                    "reason": "Perfect rainy day entertainment",
+                    "tips": "Book tickets in advance for popular shows"
+                }
+            ]
+        },
+        "picnic": {
+            "cold": [
+                {
+                    "title": "Indoor Food Market",
+                    "description": "Visit Mercado del Puerto for local cuisine",
+                    "type": "indoor",
+                    "reason": "Food experience in warm environment",
+                    "tips": "Try traditional Uruguayan barbecue"
+                },
+                {
+                    "title": "Cooking Class",
+                    "description": "Learn to cook local dishes",
+                    "type": "indoor",
+                    "reason": "Interactive food experience",
+                    "tips": "Book in advance and bring appetite"
+                }
+            ],
+            "rainy": [
+                {
+                    "title": "Restaurant Tour",
+                    "description": "Visit multiple restaurants for different courses",
+                    "type": "indoor",
+                    "reason": "Food adventure without weather concerns",
+                    "tips": "Plan route and make reservations"
+                }
+            ]
+        },
+        "running": {
+            "cold": [
+                {
+                    "title": "Indoor Gym",
+                    "description": "Use treadmill or indoor track",
+                    "type": "indoor",
+                    "reason": "Maintain fitness routine in warm environment",
+                    "tips": "Bring gym clothes and water bottle"
+                },
+                {
+                    "title": "Shopping Mall Walking",
+                    "description": "Power walk through large shopping centers",
+                    "type": "indoor",
+                    "reason": "Exercise while staying warm",
+                    "tips": "Wear comfortable shoes and track steps"
+                }
+            ],
+            "rainy": [
+                {
+                    "title": "Indoor Sports Complex",
+                    "description": "Use indoor courts or tracks",
+                    "type": "indoor",
+                    "reason": "Stay active without getting wet",
+                    "tips": "Check availability and book time slots"
+                }
+            ]
+        }
+    }
+    
+    # Get alternatives for the specific activity and condition
+    alternatives = fallback_alternatives.get(activity, {}).get(weather_condition, [])
+    
+    # If no specific alternatives, provide general ones
+    if not alternatives:
+        alternatives = [
+            {
+                "title": "Museo Nacional de Artes Visuales",
+                "description": "Explore Uruguayan art and culture",
+                "type": "indoor",
+                "reason": "Cultural experience regardless of weather",
+                "tips": "Check current exhibitions and opening hours"
+            },
+            {
+                "title": "Teatro Solís",
+                "description": "Attend a performance or take a guided tour",
+                "type": "indoor",
+                "reason": "Cultural entertainment in beautiful venue",
+                "tips": "Book tickets in advance for performances"
+            }
+        ]
+    
+    return {
+        "success": True,
+        "message": f"Generated {len(alternatives)} Plan B alternatives (fallback mode)",
+        "alternatives": alternatives,
+        "ai_model": "Fallback System",
+        "generated_at": datetime.now().isoformat()
+    }
+
 def generate_plan_b_with_gemini(
     activity: str,
     weather_condition: str,
