@@ -4,6 +4,12 @@ NASA Space Apps Challenge MVP
 Enhanced with NASA POWER API integration
 """
 
+# =============================================================================
+# IMPORTS Y CONFIGURACIÓN
+# =============================================================================
+# Importación de todas las librerías necesarias y configuración inicial
+# del sistema de logging y variables globales.
+
 import pandas as pd
 import numpy as np
 import requests
@@ -36,6 +42,12 @@ except ImportError:
     GEMINI_AVAILABLE = False
     print("Warning: google-generativeai not installed. Plan B generation will be disabled.")
 
+# =============================================================================
+# CONEXIÓN NASA POWER API
+# =============================================================================
+# Esta sección maneja toda la integración con la NASA POWER API, incluyendo
+# validación de coordenadas, fetch de datos climáticos, manejo de errores,
+# reintentos automáticos y sistema de fallback con datos locales de Montevideo.
 
 def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
     """
@@ -96,29 +108,33 @@ def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
 
 def validate_coordinates(lat: float, lon: float) -> bool:
     """
-    Valida que las coordenadas estén dentro del rango válido para Uruguay.
+    Valida que las coordenadas estén dentro de rangos geográficos válidos globalmente.
+    
+    La NASA POWER API puede obtener datos de cualquier lugar del mundo, por lo que
+    esta validación solo verifica que las coordenadas estén dentro de rangos
+    geográficos válidos (no fuera de la Tierra).
     
     Args:
-        lat: Latitud en grados decimales
-        lon: Longitud en grados decimales
+        lat: Latitud en grados decimales (-90 a 90)
+        lon: Longitud en grados decimales (-180 a 180)
         
     Returns:
-        bool: True si las coordenadas son válidas
+        bool: True si las coordenadas son válidas globalmente
         
     Raises:
-        ValueError: Si las coordenadas están fuera del rango válido
+        ValueError: Si las coordenadas están fuera de rangos geográficos válidos
     """
-    # Rango de coordenadas para Uruguay
-    URUGUAY_LAT_MIN, URUGUAY_LAT_MAX = -35.0, -30.0
-    URUGUAY_LON_MIN, URUGUAY_LON_MAX = -58.5, -53.0
+    # Rangos geográficos válidos globalmente
+    LAT_MIN, LAT_MAX = -90.0, 90.0
+    LON_MIN, LON_MAX = -180.0, 180.0
     
-    if not (URUGUAY_LAT_MIN <= lat <= URUGUAY_LAT_MAX):
-        raise ValueError(f"Latitud {lat} fuera del rango válido para Uruguay [{URUGUAY_LAT_MIN}, {URUGUAY_LAT_MAX}]")
+    if not (LAT_MIN <= lat <= LAT_MAX):
+        raise ValueError(f"Latitud {lat} fuera del rango válido global [{LAT_MIN}, {LAT_MAX}]")
     
-    if not (URUGUAY_LON_MIN <= lon <= URUGUAY_LON_MAX):
-        raise ValueError(f"Longitud {lon} fuera del rango válido para Uruguay [{URUGUAY_LON_MIN}, {URUGUAY_LON_MAX}]")
+    if not (LON_MIN <= lon <= LON_MAX):
+        raise ValueError(f"Longitud {lon} fuera del rango válido global [{LON_MIN}, {LON_MAX}]")
     
-    logger.info(f"Coordenadas validadas: ({lat}, {lon}) - Dentro del rango de Uruguay")
+    logger.info(f"Coordenadas validadas globalmente: ({lat}, {lon})")
     return True
 
 def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int) -> pd.DataFrame:
@@ -344,6 +360,13 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         logger.error(f"Unexpected error fetching or processing NASA POWER data: {str(e)}")
         logger.info("Falling back to Montevideo data due to unexpected error")
         return load_fallback_data(start_year, end_year)
+
+# =============================================================================
+# CÁLCULOS DE RIESGO CLIMÁTICO
+# =============================================================================
+# Esta sección implementa la metodología P90 (percentil 90) para calcular
+# probabilidades de condiciones climáticas adversas. Incluye análisis de
+# riesgo de calor extremo, precipitación y frío estacional.
 
 def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -678,6 +701,13 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
         'activity': activity
     }
 
+# =============================================================================
+# ANÁLISIS DE TENDENCIAS CLIMÁTICAS
+# =============================================================================
+# Esta sección analiza tendencias de cambio climático a largo plazo,
+# comparando datos recientes con promedios históricos para detectar
+# patrones de cambio en las condiciones climáticas.
+
 def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: int = 30) -> Dict[str, Any]:
     """
     Analiza tendencias de cambio climático comparando el año más reciente con el promedio histórico.
@@ -761,6 +791,11 @@ def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: i
         'difference': round(difference, 2),
         'message': message
     }
+
+# =============================================================================
+# INTEGRACIÓN GEMINI AI 
+# =============================================================================
+# Funciones auxiliares para el manejo de respuestas de Gemini AI
 
 def parse_fallback_response(response_text: str) -> list:
     
@@ -1301,87 +1336,11 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
         }
 
 
-def preprocess_data_for_p90(mock_data_df: pd.DataFrame, month_to_filter: int) -> pd.DataFrame:
-    """
-    Limpia y filtra el DataFrame histórico por el mes específico para el cálculo del P90.
-    
-    Args:
-        mock_data_df: DataFrame crudo con datos históricos
-        month_to_filter: Mes a filtrar (1-12)
-        
-    Returns:
-        DataFrame limpio y filtrado por el mes especificado
-    """
-    try:
-        # 1. Limpieza de Datos: Reemplazar valores 'no-data' (-999.0) por NaN
-        print(f"Preprocessing data for month {month_to_filter}")
-        
-        # Reemplazar valores de 'no-data' por NaN
-        df_cleaned = mock_data_df.copy()
-        df_cleaned = df_cleaned.replace(-999.0, np.nan)
-        df_cleaned = df_cleaned.replace(-999, np.nan)
-        
-        # Eliminar filas con valores NaN
-        df_cleaned = df_cleaned.dropna()
-        
-        print(f"Data after cleaning: {len(df_cleaned)} records")
-        
-        # 2. Conversión de Columna: Convertir 'Fecha' a datetime
-        if 'Fecha' in df_cleaned.columns:
-            df_cleaned['Fecha'] = pd.to_datetime(df_cleaned['Fecha'])
-            print("OK: Date column converted to datetime")
-        else:
-            print("WARNING: 'Fecha' column not found, checking for alternative date columns")
-            # Buscar columnas de fecha alternativas
-            date_columns = [col for col in df_cleaned.columns if 'date' in col.lower() or 'fecha' in col.lower()]
-            if date_columns:
-                df_cleaned[date_columns[0]] = pd.to_datetime(df_cleaned[date_columns[0]])
-                print(f"OK: Alternative date column '{date_columns[0]}' converted to datetime")
-            else:
-                print("ERROR: No date column found")
-                return pd.DataFrame()
-        
-        # 3. Filtrado Mensual Crítico: Filtrar por el mes especificado
-        if 'Fecha' in df_cleaned.columns:
-            df_filtered = df_cleaned[df_cleaned['Fecha'].dt.month == month_to_filter].copy()
-        else:
-            # Si no hay columna 'Fecha', usar la primera columna de fecha encontrada
-            date_columns = [col for col in df_cleaned.columns if 'date' in col.lower() or 'fecha' in col.lower()]
-            if date_columns:
-                df_filtered = df_cleaned[df_cleaned[date_columns[0]].dt.month == month_to_filter].copy()
-            else:
-                print("ERROR: Cannot filter by month - no date column available")
-                return pd.DataFrame()
-        
-        print(f"Filtered for month {month_to_filter}: {len(df_filtered)} records")
-        
-        # 4. Eliminación de Columnas: Remover columnas no esenciales
-        columns_to_remove = ['Humedad_Relativa', 'humedad', 'humidity']
-        for col in columns_to_remove:
-            if col in df_filtered.columns:
-                df_filtered = df_filtered.drop(columns=[col])
-                print(f"Removed column: {col}")
-        
-        # Mantener solo columnas esenciales para el cálculo de riesgo
-        essential_columns = ['Fecha', 'Temperatura', 'Precipitacion', 'Year', 'Month']
-        available_columns = [col for col in essential_columns if col in df_filtered.columns]
-        
-        if available_columns:
-            df_filtered = df_filtered[available_columns]
-            print(f"OK: Kept essential columns: {available_columns}")
-        
-        # Verificar que tenemos datos válidos
-        if df_filtered.empty:
-            print(f"ERROR: No data available for month {month_to_filter}")
-            return pd.DataFrame()
-        
-        print(f"OK: Preprocessing completed: {len(df_filtered)} records for month {month_to_filter}")
-        return df_filtered
-        
-    except Exception as e:
-        print(f"ERROR: Error in preprocess_data_for_p90: {str(e)}")
-        return pd.DataFrame()
-
+# =============================================================================
+# UTILIDADES Y VALIDACIONES
+# =============================================================================
+# Esta sección contiene funciones auxiliares, validaciones de datos,
+# funciones de prueba y el punto de entrada del script.
 
 if __name__ == "__main__":
     # Run verification when script is executed directly
