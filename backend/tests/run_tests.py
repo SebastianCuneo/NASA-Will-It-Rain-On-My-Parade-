@@ -38,6 +38,7 @@ def run_tests(test_type='all', verbose=False, real_api=False):
     # Importar las pruebas
     try:
         from tests.test_nasa_power_api import TestNasaPowerAPI, TestNasaPowerAPIIntegration
+        from tests.test_climate_trend import TestClimateTrendAnalysis, TestGetClimateTrendData, TestClimateTrendIntegration
     except ImportError as e:
         print(f"❌ Error importando pruebas: {e}")
         return False
@@ -46,6 +47,8 @@ def run_tests(test_type='all', verbose=False, real_api=False):
     if test_type in ['unit', 'all']:
         print("📋 Agregando pruebas unitarias...")
         suite.addTests(loader.loadTestsFromTestCase(TestNasaPowerAPI))
+        suite.addTests(loader.loadTestsFromTestCase(TestClimateTrendAnalysis))
+        suite.addTests(loader.loadTestsFromTestCase(TestGetClimateTrendData))
     
     if test_type in ['integration', 'all']:
         print("🌐 Agregando pruebas de integración...")
@@ -60,6 +63,7 @@ def run_tests(test_type='all', verbose=False, real_api=False):
                                 False, "Integration test enabled"
                             )(subtest.__class__.test_real_api_call)
         suite.addTests(loader.loadTestsFromTestCase(TestNasaPowerAPIIntegration))
+        suite.addTests(loader.loadTestsFromTestCase(TestClimateTrendIntegration))
     
     # Ejecutar las pruebas
     print(f"\n🧪 Ejecutando {suite.countTestCases()} pruebas...")
