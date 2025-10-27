@@ -19,9 +19,7 @@ from typing import Dict, Any, Optional
 import time
 import os
 import logging
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
+
 
 # Configuración de logging
 logging.basicConfig(
