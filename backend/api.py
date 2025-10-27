@@ -1,6 +1,7 @@
 """
 NASA Weather Risk Navigator - Backend API
 NASA Space Apps Challenge - FastAPI Backend
+Refactored for React Frontend Integration
 """
 
 from fastapi import FastAPI, HTTPException
@@ -15,7 +16,7 @@ from datetime import datetime
 
 # Import logic module from same directory
 try:
-    from logic import load_historical_data, calculate_heat_risk, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data, generate_plotly_visualizations
+    from logic import load_historical_data, calculate_adverse_probability, calculate_precipitation_risk, calculate_cold_risk, generate_plan_b_with_gemini, generate_fallback_plan_b, get_climate_trend_data, generate_plotly_visualizations
 except ImportError as e:
     print(f"Error importing logic module: {e}")
     # Fallback functions if logic module is not found
@@ -33,7 +34,7 @@ except ImportError as e:
         except Exception as e:
             raise Exception(f"Error loading data: {str(e)}")
     
-    def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+    def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         if monthly_data.empty:
             raise ValueError("No data provided")
         if 'Max_Temperature_C' not in monthly_data.columns:
@@ -191,7 +192,7 @@ async def get_risk_analysis(request: RiskRequest):
 
         # 3. Análisis de Riesgo P90
         print("Calculating risk analysis...")
-        risk_analysis = calculate_heat_risk(historical_data)
+        risk_analysis = calculate_adverse_probability(historical_data)
         print(f"Risk analysis completed: {risk_analysis.get('risk_level', 'N/A')}")
 
         # 4. Análisis de Tendencia Climática 
@@ -258,7 +259,7 @@ async def test_simple():
         })
         
         # Probar funciones
-        risk_analysis = calculate_heat_risk(test_data)
+        risk_analysis = calculate_adverse_probability(test_data)
         climate_data = get_climate_trend_data(test_data)
         visualizations = generate_plotly_visualizations(test_data)
         
@@ -423,7 +424,7 @@ async def get_risk_analysis_working(request: RiskRequest):
 
         # 2. Análisis de Riesgo P90
         print("Calculating risk analysis...")
-        risk_analysis = calculate_heat_risk(historical_data)
+        risk_analysis = calculate_adverse_probability(historical_data)
         print(f"Risk analysis completed: {risk_analysis.get('risk_level', 'N/A')}")
 
         # 3. Análisis de Tendencia Climática 
@@ -472,7 +473,7 @@ async def test_endpoint():
         # Test with March data using default Montevideo coordinates
         result = load_historical_data(3, -34.90, -56.16)
         monthly_data = result['data']
-        risk_results = calculate_heat_risk(monthly_data)
+        risk_results = calculate_adverse_probability(monthly_data)
         
         return {
             "status": "success",
@@ -629,6 +630,106 @@ async def get_visualizations(request: RiskRequest):
             "charts": []
         }
 
+# Plan B request model for the new endpoint
+class PlanBRequest(BaseModel):
+    risk_level: str
+    activity: str
+    location: str
+    date: str
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "risk_level": "HIGH",
+                "activity": "beach",
+                "location": "Montevideo, Uruguay",
+                "date": "2024-12-16"
+            }
+        }
+    }
+
+# Plan B response model
+class PlanBResult(BaseModel):
+    plan_b_suggestions: list[dict[str, str]]
+
+# Plan B endpoint
+@app.post("/planb")
+async def get_plan_b(risk_data: PlanBRequest):
+    """
+    Generate Plan B suggestions using AI-powered Gemini integration.
+    Returns structured JSON response with alternative activities.
+    """
+    try:
+        print(f'Plan B endpoint received: Risk={risk_data.risk_level}, Activity={risk_data.activity}, Location={risk_data.location}, Date={risk_data.date}')
+        
+        # Check if risk level requires Plan B
+        if risk_data.risk_level not in ["MODERATE", "HIGH"]:
+            return {
+                "success": True,
+                "message": "El riesgo es MINIMAL/LOW. No se necesita un Plan B.",
+                "plan_b_suggestions": []
+            }
+        
+        # Generate Plan B suggestions using the existing Gemini function
+        plan_b_result = generate_plan_b_with_gemini(
+            activity=risk_data.activity,
+            weather_condition="adverse",  # Generic adverse condition
+            risk_level=risk_data.risk_level,
+            location=risk_data.location,
+            season="Summer",  # Could be enhanced to determine season from date
+            temperature_risk=50.0 if risk_data.risk_level == "HIGH" else 25.0,
+            precipitation_risk=30.0 if risk_data.risk_level == "HIGH" else 15.0,
+            cold_risk=20.0 if risk_data.risk_level == "HIGH" else 10.0
+        )
+        
+        # If Gemini fails, use fallback
+        if not plan_b_result.get('success', False):
+            fallback_result = generate_fallback_plan_b(
+                activity=risk_data.activity,
+                weather_condition="adverse",
+                risk_level=risk_data.risk_level,
+                location=risk_data.location,
+                season="Summer"
+            )
+            plan_b_result = fallback_result
+        
+        # Format response according to the required JSON structure
+        alternatives = plan_b_result.get('alternatives', [])
+        formatted_suggestions = []
+        
+        for alt in alternatives:
+            if isinstance(alt, dict):
+                formatted_suggestions.append({
+                    "name": alt.get('title', 'Alternative Activity'),
+                    "description": alt.get('description', 'No description available')
+                })
+        
+        # Ensure we have at least 3 suggestions
+        while len(formatted_suggestions) < 3:
+            formatted_suggestions.append({
+                "name": f"Alternative {len(formatted_suggestions) + 1}",
+                "description": "Additional weather-appropriate activity"
+            })
+        
+        return {
+            "success": True,
+            "plan_b_suggestions": formatted_suggestions[:3],  # Limit to 3 as requested
+            "ai_model": plan_b_result.get('ai_model', 'Fallback System'),
+            "message": f"Generated {len(formatted_suggestions)} Plan B alternatives",
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Plan B endpoint error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Error generating Plan B suggestions",
+            "plan_b_suggestions": []
+        }
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -638,6 +739,7 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "risk_analysis": "POST /api/risk",
+            "plan_b": "POST /planb",
             "regenerate_plan_b": "POST /api/regenerate-plan-b",
             "visualizations": "POST /api/visualizations",
             "test": "GET /api/test",
