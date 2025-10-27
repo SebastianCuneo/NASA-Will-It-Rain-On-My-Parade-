@@ -11,11 +11,16 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import useGeminiAI from '../hooks/useGeminiAI';
 
 const WeatherResults = ({ data, isNightMode }) => {
   const [planBData, setPlanBData] = useState(null);
   const [planBLoading, setPlanBLoading] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
+  const [planBError, setPlanBError] = useState(null);
+  const [aiModel, setAiModel] = useState('Local Intelligence System');
+  
+  // Hook para Gemini AI
+  const { generatePlanB, isLoading: geminiLoading, error: geminiError } = useGeminiAI();
 
   // Datos mock para condiciones meteorológicas - usado como fallback cuando no hay datos de API
   const mockData = {
@@ -40,7 +45,7 @@ const WeatherResults = ({ data, isNightMode }) => {
   };
 
   // Extracción de datos del prop - contiene tanto datos de API como información del formulario
-  const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk, plan_b } = data;
+  const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk } = data;
   
   // Variables para acumular cálculos de riesgo meteorológico
   let totalPercentage = 0, totalPastPercentage = 0, emojis = '';
@@ -211,7 +216,7 @@ const WeatherResults = ({ data, isNightMode }) => {
   }, [weatherConditions, activity, apiResults, temperature_risk, precipitation_risk, cold_risk]);
 
   // GENERACIÓN DE PLAN B: Solo cuando la actividad no es compatible
-  // Evitar parpadeo: cargar Plan B solo una vez por escenario y evitar resetear estado en cada render
+  // Sistema híbrido: Gemini AI + Fallback local
   const planBInitializedRef = useRef(false);
   useEffect(() => {
     const needsAlternatives = activityCompatibility && !activityCompatibility.isGood;
@@ -220,118 +225,286 @@ const WeatherResults = ({ data, isNightMode }) => {
       planBInitializedRef.current = false;
       setPlanBLoading(false);
       setPlanBData(null);
+      setPlanBError(null);
       return;
     }
 
     // If already initialized with current scenario, skip
     if (planBInitializedRef.current && (planBData && planBData.length > 0)) return;
 
-    // Priorizar Plan B proporcionado por el backend cuando esté disponible
-    if (plan_b && plan_b.success && plan_b.alternatives && plan_b.alternatives.length > 0) {
-      setPlanBData(plan_b.alternatives);
-      setPlanBLoading(false);
-      planBInitializedRef.current = true;
-      return;
-    }
+    // Generar Plan B con Gemini AI + fallback local
+    generatePlanBWithFallback(weatherConditions, activity, location);
+  }, [activityCompatibility?.isGood, weatherConditions, activity, location, planBData]);
 
-    if (!planBLoading) setPlanBLoading(true);
-    const timeout = setTimeout(() => {
-      const planBOptions = generateDynamicPlanB(weatherConditions, activity);
-      setPlanBData(planBOptions);
-      setPlanBLoading(false);
-      planBInitializedRef.current = true;
-    }, 600);
+  // Función híbrida: Gemini AI + Fallback local
+  const generatePlanBWithFallback = async (conditions, activity, location) => {
+    setPlanBLoading(true);
+    setPlanBError(null);
+    setAiModel('Gemini 2.0 Flash (Frontend)');
 
-    return () => clearTimeout(timeout);
-  }, [activityCompatibility?.isGood, plan_b, weatherConditions, activity, planBLoading, planBData]);
-
-  // Función para regenerar Plan B mediante llamada al backend
-  const regeneratePlanB = async () => {
-    if (!activityCompatibility || activityCompatibility.isGood) return;
-    
-    setRegenerating(true);
-    setPlanBData(null);
-    
     try {
-      // Call backend API to regenerate Plan B
-      const response = await fetch('http://localhost:8000/api/regenerate-plan-b', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          activity: activity,
-          weather_conditions: weatherConditions,
-          location: 'Montevideo, Uruguay',
-          date: data.date || new Date().toISOString().split('T')[0],
-          temperature_risk: data.temperature_risk?.probability || 0,
-          precipitation_risk: data.precipitation_risk?.probability || 0,
-          cold_risk: data.cold_risk?.probability || 0
-        })
-      });
+      // Intentar con Gemini AI primero
+      console.log('🤖 Attempting Gemini AI generation...');
+      const geminiResult = await generatePlanB(conditions, activity, location);
+      console.log('🤖 Gemini result:', geminiResult);
       
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Regenerate response:', result);
-        
-        if (result.success && result.alternatives && result.alternatives.length > 0) {
-          setPlanBData(result.alternatives);
+      if (geminiResult.success && geminiResult.alternatives.length > 0) {
+        console.log('✅ Gemini AI successful, using AI-generated alternatives');
+        setPlanBData(geminiResult.alternatives);
+        setAiModel(geminiResult.ai_model);
+        setPlanBError(null);
         } else {
-          console.log('Regenerate failed, using fallback');
-          // Fallback to dynamic generation
-          const planBOptions = generateDynamicPlanB(weatherConditions, activity);
-          setPlanBData(planBOptions);
-        }
-      } else {
-        console.log('Regenerate API error, using fallback');
-        // Fallback to dynamic generation
-        const planBOptions = generateDynamicPlanB(weatherConditions, activity);
-        setPlanBData(planBOptions);
+        // Fallback a respuestas harcodeadas
+        console.log('❌ Gemini failed, using local fallback:', geminiResult.error);
+        const fallbackOptions = generateAdvancedPlanB(conditions, activity, location);
+        setPlanBData(fallbackOptions);
+        setAiModel('Local Intelligence System (Fallback)');
+        setPlanBError('Gemini AI unavailable, using local alternatives');
       }
     } catch (error) {
-      console.error('Error regenerating Plan B:', error);
-      // Fallback to dynamic generation
-      const planBOptions = generateDynamicPlanB(weatherConditions, activity);
-      setPlanBData(planBOptions);
+      // Error en Gemini, usar fallback
+      console.error('Gemini AI error:', error);
+      const fallbackOptions = generateAdvancedPlanB(conditions, activity, location);
+      setPlanBData(fallbackOptions);
+      setAiModel('Local Intelligence System (Fallback)');
+      setPlanBError('Gemini AI error, using local alternatives');
     } finally {
-      setRegenerating(false);
+      setPlanBLoading(false);
+      planBInitializedRef.current = true;
     }
   };
 
-  // Generación dinámica de Plan B basada en condiciones meteorológicas
-  const generateDynamicPlanB = (conditions, originalActivity) => {
+  // Función para regenerar Plan B con Gemini + fallback
+  const regeneratePlanB = () => {
+    if (!activityCompatibility || activityCompatibility.isGood) return;
+    
+    setPlanBData(null);
+    planBInitializedRef.current = false;
+    generatePlanBWithFallback(weatherConditions, activity, location);
+  };
+
+  // Generación avanzada de Plan B completamente local
+  const generateAdvancedPlanB = (conditions, originalActivity, location) => {
     const planBOptions = [];
     
-    if (conditions.includes('wet') || conditions.includes('cold')) {
-      planBOptions.push(
-        { activityName: "Museum Visit", recommendation: "Perfect indoor activity when weather is challenging. Explore art and culture." },
-        { activityName: "Library Reading", recommendation: "Cozy indoor space to enjoy books while staying warm and dry." }
-      );
-    }
+    // Base de datos de alternativas por condición meteorológica y actividad
+    const alternativesDB = {
+      beach: {
+        wet: [
+          {
+            title: "Museo del Mar",
+            description: "Explore marine life and ocean exhibits in a warm, dry environment",
+            type: "indoor",
+            reason: "Ocean-themed experience without weather concerns",
+            tips: "Great for families and educational, check current exhibitions",
+            location: "Montevideo, Uruguay",
+            duration: "2-3 hours",
+            cost: "Low"
+          },
+          {
+            title: "Shopping Mall",
+            description: "Visit Punta Carretas or Montevideo Shopping for indoor entertainment",
+            type: "indoor",
+            reason: "Stay dry while enjoying shopping and dining",
+            tips: "Check for special events or sales, bring comfortable shoes",
+            location: "Montevideo, Uruguay",
+            duration: "3-4 hours",
+            cost: "Medium"
+          }
+        ],
+        cold: [
+          {
+            title: "Indoor Pool Complex",
+            description: "Visit a heated indoor pool or water park",
+            type: "indoor",
+            reason: "Warm water activities without cold weather exposure",
+            tips: "Bring swimwear and check opening hours",
+            location: "Various locations",
+            duration: "2-3 hours",
+            cost: "Medium"
+          },
+          {
+            title: "Thermal Baths",
+            description: "Relax in natural hot springs",
+            type: "mixed",
+            reason: "Warm water therapy in natural setting",
+            tips: "Bring towels and check temperature requirements",
+            location: "Uruguay",
+            duration: "3-4 hours",
+            cost: "Medium"
+          }
+        ],
+        hot: [
+          {
+            title: "Indoor Cinema",
+            description: "Watch latest movies in air-conditioned theaters",
+            type: "indoor",
+            reason: "Entertainment in climate-controlled space away from heat",
+            tips: "Book tickets in advance for popular shows",
+            location: "Montevideo, Uruguay",
+            duration: "2-3 hours",
+            cost: "Low"
+          },
+          {
+            title: "Library or Bookstore",
+            description: "Enjoy reading in a cool, quiet environment",
+            type: "indoor",
+            reason: "Peaceful activity in air-conditioned space",
+            tips: "Bring your own book or explore local literature",
+            location: "Various locations",
+            duration: "1-3 hours",
+            cost: "Free"
+          }
+        ]
+      },
+      picnic: {
+        wet: [
+          {
+            title: "Indoor Food Market",
+            description: "Visit Mercado del Puerto for local cuisine",
+            type: "indoor",
+            reason: "Food experience in warm, dry environment",
+            tips: "Try traditional Uruguayan barbecue and local specialties",
+            location: "Mercado del Puerto, Montevideo",
+            duration: "2-3 hours",
+            cost: "Medium"
+          },
+          {
+            title: "Restaurant Tour",
+            description: "Visit multiple restaurants for different courses",
+            type: "indoor",
+            reason: "Food adventure without weather concerns",
+            tips: "Plan route and make reservations in advance",
+            location: "Montevideo, Uruguay",
+            duration: "3-4 hours",
+            cost: "High"
+          }
+        ],
+        cold: [
+          {
+            title: "Cooking Class",
+            description: "Learn to cook local dishes in a warm kitchen",
+            type: "indoor",
+            reason: "Interactive food experience in comfortable environment",
+            tips: "Book in advance and bring appetite",
+            location: "Various locations",
+            duration: "2-3 hours",
+            cost: "Medium"
+          },
+          {
+            title: "Indoor Food Festival",
+            description: "Explore local cuisine at indoor food events",
+            type: "indoor",
+            reason: "Food tasting in climate-controlled environment",
+            tips: "Check local event calendars for food festivals",
+            location: "Montevideo, Uruguay",
+            duration: "2-4 hours",
+            cost: "Medium"
+          }
+        ]
+      },
+      run: {
+        wet: [
+          {
+            title: "Indoor Gym",
+            description: "Use treadmill or indoor track",
+            type: "indoor",
+            reason: "Maintain fitness routine in dry environment",
+            tips: "Bring gym clothes and water bottle",
+            location: "Various gyms",
+            duration: "1-2 hours",
+            cost: "Low"
+          },
+          {
+            title: "Shopping Mall Walking",
+            description: "Power walk through large shopping centers",
+            type: "indoor",
+            reason: "Exercise while staying dry",
+            tips: "Wear comfortable shoes and track steps",
+            location: "Montevideo Shopping, Punta Carretas",
+            duration: "1-2 hours",
+            cost: "Free"
+          }
+        ],
+        hot: [
+          {
+            title: "Indoor Sports Complex",
+            description: "Use indoor courts or tracks with air conditioning",
+            type: "indoor",
+            reason: "Stay active without heat exposure",
+            tips: "Check availability and book time slots",
+            location: "Various sports centers",
+            duration: "1-2 hours",
+            cost: "Low"
+          },
+          {
+            title: "Swimming Pool",
+            description: "Indoor swimming for cardio exercise",
+            type: "indoor",
+            reason: "Cool exercise option for hot days",
+            tips: "Bring swimwear and check pool hours",
+            location: "Various pools",
+            duration: "1-2 hours",
+            cost: "Low"
+          }
+        ]
+      }
+    };
+
+    // Obtener alternativas específicas para la actividad y condiciones
+    const activityAlternatives = alternativesDB[originalActivity] || {};
+    const conditionAlternatives = [];
     
-    if (conditions.includes('hot') || conditions.includes('uv')) {
-      planBOptions.push(
-        { activityName: "Shopping Mall", recommendation: "Air-conditioned environment perfect for hot days. Shop and stay cool." },
-        { activityName: "Indoor Cinema", recommendation: "Entertainment in a climate-controlled space away from the heat." }
-      );
+    // Buscar alternativas para cada condición meteorológica
+    conditions.forEach(condition => {
+      if (activityAlternatives[condition]) {
+        conditionAlternatives.push(...activityAlternatives[condition]);
+      }
+    });
+
+    // Si no hay alternativas específicas, usar alternativas generales
+    if (conditionAlternatives.length === 0) {
+      const generalAlternatives = [
+        {
+          title: "Museo Nacional de Artes Visuales",
+          description: "Explore Uruguayan art and culture",
+          type: "indoor",
+          reason: "Cultural experience regardless of weather",
+          tips: "Check current exhibitions and opening hours",
+          location: "Montevideo, Uruguay",
+          duration: "2-3 hours",
+          cost: "Low"
+        },
+        {
+          title: "Teatro Solís",
+          description: "Attend a performance or take a guided tour",
+          type: "indoor",
+          reason: "Cultural entertainment in beautiful venue",
+          tips: "Book tickets in advance for performances",
+          location: "Teatro Solís, Montevideo",
+          duration: "2-3 hours",
+          cost: "Medium"
+        },
+        {
+          title: "Coffee Shop Tour",
+          description: "Visit different coffee shops around the city",
+          type: "indoor",
+          reason: "Relaxing activity in comfortable environment",
+          tips: "Try local coffee varieties and pastries",
+          location: "Various locations",
+          duration: "2-4 hours",
+          cost: "Low"
+        }
+      ];
+      conditionAlternatives.push(...generalAlternatives);
     }
-    
-    if (conditions.includes('windy')) {
-      planBOptions.push(
-        { activityName: "Indoor Sports", recommendation: "Gym or sports center activities that aren't affected by wind." },
-        { activityName: "Art Gallery", recommendation: "Cultural experience in a protected indoor environment." }
-      );
-    }
-    
-    // Default options if no specific conditions match
-    if (planBOptions.length === 0) {
-      planBOptions.push(
-        { activityName: "Museum", recommendation: "Perfect for challenging weather days, you can enjoy art without worrying about conditions." },
-        { activityName: "Coffee Shop", recommendation: "A cozy place to spend time while the weather improves." }
-      );
-    }
-    
-    return planBOptions.slice(0, 2); // Return max 2 options
+
+    // Eliminar duplicados y limitar a 3 opciones
+    const uniqueAlternatives = conditionAlternatives.filter((alt, index, self) => 
+      index === self.findIndex(a => a.title === alt.title)
+    );
+
+    return uniqueAlternatives.slice(0, 3);
   };
 
   return (
@@ -437,26 +610,32 @@ const WeatherResults = ({ data, isNightMode }) => {
                             </div>
                           </div>
                         ))}
-                        {plan_b && plan_b.ai_model && (
                           <p className={`text-xs mt-3 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
-                            Powered by {plan_b.ai_model}
-                          </p>
+                          Powered by {aiModel}
+                        </p>
+                        
+                        {planBError && (
+                          <div className={`mt-2 p-2 rounded text-xs ${
+                            isNightMode ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            ⚠️ {planBError}
+                          </div>
                         )}
                         
                         {/* Regenerate Button */}
                         <div className="mt-4 pt-3 border-t border-slate-600">
                           <button
                             onClick={regeneratePlanB}
-                            disabled={regenerating || planBLoading}
+                            disabled={planBLoading}
                             className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
-                              regenerating || planBLoading
+                              planBLoading
                                 ? 'bg-slate-600 text-slate-400 cursor-not-allowed scale-100'
                                 : isNightMode
                                 ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-blue-500/25'
                                 : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
                             }`}
                           >
-                            {regenerating ? (
+                            {planBLoading ? (
                               <>
                                 <div className="flex items-center justify-center">
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-3"></div>
