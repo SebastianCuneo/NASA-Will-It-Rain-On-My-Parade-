@@ -40,7 +40,6 @@ except ImportError:
     GEMINI_AVAILABLE = False
     print("Warning: google-generativeai not installed. Plan B generation will be disabled.")
 
-def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
 # =============================================================================
 # CONEXIÓN NASA POWER API
 # =============================================================================
@@ -50,119 +49,61 @@ def get_climate_trend_data(historical_data: pd.DataFrame) -> Dict[str, Any]:
 
 def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
     """
-    Calcula el Percentil 90 (P90) de la temperatura máxima para cada año y genera los datos necesarios para los gráficos de Plotly.
-    Implementa granularidad correcta para datos de la NASA API.
+    Carga datos de fallback desde el archivo CSV de Montevideo cuando la NASA API no está disponible.
     
     Args:
-        historical_data: DataFrame con datos históricos de temperatura.
+        start_year: Año inicial para el rango de datos
+        end_year: Año final para el rango de datos
         
     Returns:
-        Dict: Contiene 'plot_data' (P90 por año) y 'climate_trend' (resumen).
-    """
-    if historical_data.empty:
-        return {
-            "plot_data": [],
-            "climate_trend": "No se encontraron datos históricos suficientes para realizar el análisis de tendencia climática (P90 anual)."
-        }
-    
-    # Filtrar datos válidos (NASA usa -999 para datos faltantes)
-    valid_data = historical_data[historical_data['Max_Temperature_C'] > -100].copy()
-    
-    if valid_data.empty:
-        return {
-            "plot_data": [],
-            "climate_trend": "No se encontraron datos de temperatura válidos para el análisis P90."
-        }
-    
-    # Calcular P90 por año con granularidad correcta
-    # Agrupar por año y calcular el percentil 90 de las temperaturas máximas diarias
-    p90_by_year = valid_data.groupby('Year')['Max_Temperature_C'].quantile(0.90).reset_index()
-    p90_by_year.rename(columns={'Max_Temperature_C': 'P90_Max_Temp'}, inplace=True)
-    
-    # Calcular también estadísticas adicionales para mejor visualización
-    stats_by_year = valid_data.groupby('Year')['Max_Temperature_C'].agg([
-        'mean', 'max', 'min', 'std'
-    ]).reset_index()
-    stats_by_year.columns = ['Year', 'Mean_Temp', 'Max_Temp', 'Min_Temp', 'Std_Temp']
-    
-    # Combinar datos P90 con estadísticas
-    plot_data = p90_by_year.merge(stats_by_year, on='Year', how='left')
-    plot_data = plot_data.to_dict('records')
-    
-    # Análisis de tendencias climáticas
-    if len(p90_by_year) >= 2:
-        # Calcular la diferencia entre el P90 del último año y el primer año
-        start_p90 = p90_by_year.iloc[0]['P90_Max_Temp']
-        end_p90 = p90_by_year.iloc[-1]['P90_Max_Temp']
-        trend_diff = end_p90 - start_p90
-        
-        start_year = p90_by_year.iloc[0]['Year']
-        end_year = p90_by_year.iloc[-1]['Year']
-        
-        # Calcular tendencia de la media también
-        start_mean = stats_by_year.iloc[0]['Mean_Temp']
-        end_mean = stats_by_year.iloc[-1]['Mean_Temp']
-        mean_trend_diff = end_mean - start_mean
-        
-        if trend_diff > 1.0:
-            trend_summary = f"ALARMA: El umbral de calor extremo (P90) ha aumentado en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media también aumentó {mean_trend_diff:.2f}°C. Esto sugiere una clara tendencia al aumento de temperaturas extremas."
-        elif trend_diff > 0.3:
-            trend_summary = f"Advertencia: El umbral de calor extremo (P90) ha aumentado ligeramente en {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C. Se recomienda monitoreo continuo."
-        else:
-            trend_summary = f"Estable: El umbral de calor extremo (P90) se ha mantenido relativamente estable, con una variación de {trend_diff:.2f}°C entre {start_year} y {end_year}. La temperatura media cambió {mean_trend_diff:.2f}°C."
-    else:
-        trend_summary = "Datos insuficientes (menos de 2 años) para calcular una tendencia climática anual significativa."
-
-    return {
-        "plot_data": plot_data,
-        "climate_trend": trend_summary
-    }
-
-
-def load_historical_data_by_date(lat: float, lon: float, date_str: str) -> pd.DataFrame:
-    """
-    Carga los datos históricos del mes de interés.
-
-    Args:
-        lat: Latitud.
-        lon: Longitud.
-        date_str: Fecha en formato YYYY-MM-DD.
-        
-    Returns:
-        pd.DataFrame: DataFrame de Pandas con datos históricos del mes.
+        pd.DataFrame: DataFrame con datos de fallback de Montevideo
     """
     try:
-        # Extraer el mes
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-        month = date_obj.month
+        # Ruta al archivo de fallback
+        fallback_file = os.path.join(os.path.dirname(__file__), 'FALLBACK_MONTEVIDEO_DATA.csv')
         
-        print(f"FastAPI Processing: Month={month}")
+        if not os.path.exists(fallback_file):
+            logger.error(f"Fallback file not found: {fallback_file}")
+            return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
         
-        # 1. Llamar a la función de obtención de datos (asumiendo 20 años de historia)
-        start_year = 2005
-        end_year = date_obj.year # Hasta el año actual
-        print(f"Fetching NASA POWER data for coordinates ({lat}, {lon}) from {start_year} to {end_year}")
-
-        # La función fetch_nasa_power_data debe retornar un DF en caso de éxito
-        historical_data_full = fetch_nasa_power_data(lat, lon, start_year, end_year)
+        logger.info(f"Loading fallback data from Montevideo CSV: {fallback_file}")
         
-        if historical_data_full.empty:
-             print("NASA POWER API returned empty DataFrame.")
-             return pd.DataFrame() # Devuelve un DF vacío si no hay datos
-
-        # 2. Filtrar los datos solo para el mes de interés
-        monthly_data = historical_data_full[historical_data_full['Month'] == month]
-
-        if monthly_data.empty:
-            print(f"Error in load_historical_data: No data found for month {month}")
-            return pd.DataFrame() # Devuelve un DF vacío si no hay datos para ese mes
+        # Leer el archivo CSV, saltando las líneas de header
+        df = pd.read_csv(fallback_file, skiprows=12)  # Saltar hasta la línea de datos
         
-        return monthly_data
+        # Convertir DOY (Day of Year) a fecha
+        df['Date'] = pd.to_datetime(df['YEAR'].astype(str) + '-' + df['DOY'].astype(str), format='%Y-%j')
+        
+        # Filtrar por rango de años
+        df = df[(df['YEAR'] >= start_year) & (df['YEAR'] <= end_year)]
+        
+        if df.empty:
+            logger.warning(f"No fallback data available for years {start_year}-{end_year}")
+            return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+        
+        # Renombrar columnas para coincidir con el formato esperado
+        df_processed = pd.DataFrame({
+            'Year': df['YEAR'],
+            'Month': df['Date'].dt.month,
+            'Max_Temperature_C': df['T2M_MAX'],
+            'Min_Temperature_C': df['T2M_MIN'],
+            'Avg_Temperature_C': df['T2M'],
+            'Precipitation_mm': df['PRECTOTCORR']
+        })
+        
+        # Limpiar datos: eliminar valores -999 (datos faltantes de la NASA)
+        df_processed = df_processed.replace(-999, np.nan).dropna()
+        
+        # Ordenar por año y mes
+        df_processed = df_processed.sort_values(['Year', 'Month']).reset_index(drop=True)
+        
+        logger.info(f"Successfully loaded {len(df_processed)} fallback records from Montevideo data")
+        return df_processed
         
     except Exception as e:
-        print(f"FastAPI Error in Load: {str(e)}")
-        # Define las columnas para que api.py sepa que es un DataFrame
-        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
+        logger.error(f"Error loading fallback data: {str(e)}")
+        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+
 def validate_coordinates(lat: float, lon: float) -> bool:
     """
     Valida que las coordenadas estén dentro de rangos geográficos válidos globalmente.
@@ -196,181 +137,236 @@ def validate_coordinates(lat: float, lon: float) -> bool:
 
 def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int) -> pd.DataFrame:
     """
-    Fetch historical weather data from NASA POWER API
+    Obtiene datos climáticos históricos diarios de la NASA POWER API.
     
+    La NASA POWER API proporciona datos meteorológicos globales con resolución espacial de 0.5°x0.625°
+    y temporal diaria. Esta función solicita temperatura máxima (T2M_MAX), temperatura mínima (T2M_MIN),
+    temperatura promedio (T2M) y precipitación total corregida (PRECTOTCORR) para análisis de riesgo climático.
+
     Args:
-        lat: Latitude coordinate
-        lon: Longitude coordinate  
-        start_year: Start year for data (e.g., 2004)
-        end_year: End year for data (e.g., 2024)
+        lat: Latitud en grados decimales (-90 a 90)
+        lon: Longitud en grados decimales (-180 a 180)
+        start_year: Año inicial para el rango de datos históricos
+        end_year: Año final para el rango de datos históricos
         
     Returns:
-        pd.DataFrame: DataFrame with columns 'Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'
+        pd.DataFrame: DataFrame con datos diarios procesados, columnas:
+            - Year: Año del registro
+            - Month: Mes del registro (1-12)
+            - Max_Temperature_C: Temperatura máxima diaria en Celsius
+            - Min_Temperature_C: Temperatura mínima diaria en Celsius
+            - Avg_Temperature_C: Temperatura promedio diaria en Celsius
+            - Precipitation_mm: Precipitación diaria en milímetros
     """
-    # Define el DataFrame vacío de fallback
-    empty_df = pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm'])
+    # DataFrame vacío como fallback en caso de error
+    empty_df = pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
     
     try:
-        # Construct the NASA POWER API URL
+        # Validar coordenadas al inicio
+        validate_coordinates(lat, lon)
+        
+        # URL base de la NASA POWER API para datos temporales diarios por punto
         base_url = "https://power.larc.nasa.gov/api/temporal/daily/point"
         
-        # Format dates as YYYYMMDD
-        start_date = f"{start_year}0101" 
-        end_date = f"{end_year}1231" 
+        # Formato de fechas requerido por la API: YYYYMMDD
+        start_date = f"{start_year}0101"  # 1 de enero del año inicial
+        end_date = f"{end_year}1231"      # 31 de diciembre del año final
         
-        # API parameters
+        # Parámetros de la solicitud HTTP
         params = {
-            'parameters': 'T2M_MAX,PRECTOTCORR',
-            'community': 'AG',
-            'longitude': lon,
-            'latitude': lat,
-            'start': start_date,
-            'end': end_date,
-            'format': 'JSON'
+            'parameters': 'T2M_MAX,T2M_MIN,T2M,PRECTOTCORR',  # Variables climáticas solicitadas
+            'community': 'AG',                      # Comunidad Agroclimatológica
+            'longitude': lon,                      # Coordenada de longitud
+            'latitude': lat,                       # Coordenada de latitud
+            'start': start_date,                   # Fecha de inicio
+            'end': end_date,                       # Fecha de fin
+            'format': 'JSON'                       # Formato de respuesta
         }
         
-        print(f"Fetching NASA POWER data for coordinates ({lat}, {lon}) from {start_year} to {end_year}")
+        logger.info(f"Fetching NASA POWER data for coordinates ({lat}, {lon}) from {start_year} to {end_year}")
         
-        # Make API request with timeout and retry logic
+        # Implementación de reintentos para manejar fallos de red
         max_retries = 3
-        response = None # Inicializar response
+        response = None
         for attempt in range(max_retries):
             try:
                 response = requests.get(base_url, params=params, timeout=30)
-                response.raise_for_status()
+                response.raise_for_status()  # Lanza excepción para códigos HTTP 4xx/5xx
                 break
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
-                    print(f"Failed to fetch NASA POWER data after {max_retries} attempts: {str(e)}")
-                    return empty_df # Retorna vacío después de fallar todos los reintentos
-                print(f"Attempt {attempt + 1} failed, retrying in 2 seconds...")
+                    logger.error(f"Failed to fetch NASA POWER data after {max_retries} attempts: {str(e)}")
+                    logger.info("Falling back to Montevideo data due to NASA API failure")
+                    return load_fallback_data(start_year, end_year)
+                logger.warning(f"Attempt {attempt + 1} failed, retrying in 2 seconds... Error: {str(e)}")
                 time.sleep(2)
         
         if response is None:
-            return empty_df # Asegura que si no hubo respuesta, se devuelve vacío
+            logger.error("No response received from NASA API after all retries")
+            logger.info("Falling back to Montevideo data due to no response")
+            return load_fallback_data(start_year, end_year)
             
-        # Parse JSON response
-        data = response.json()
+        # Parse de la respuesta JSON de la NASA con manejo de errores específico
+        logger.info("Parsing JSON response from NASA POWER API...")
+        try:
+            data = response.json()
+            logger.info("JSON response parsed successfully")
+        except ValueError as e:
+            logger.error(f"Error parsing JSON response: {str(e)}")
+            logger.info("Falling back to Montevideo data due to JSON parsing error")
+            return load_fallback_data(start_year, end_year)
+        except Exception as e:
+            logger.error(f"Unexpected error parsing response: {str(e)}")
+            logger.info("Falling back to Montevideo data due to parsing error")
+            return load_fallback_data(start_year, end_year)
         
-        # 🚨 CAMBIO CLAVE 1: Verificar si la respuesta JSON es un mensaje de error 🚨
-        # Solo considerar error si hay mensajes de error específicos, no mensajes informativos
-        if 'message' in data and 'error' in str(data['message']).lower():
-            print(f"NASA API returned an error message: {data['message']}")
-            return empty_df
+        # Validación de la estructura de respuesta de la API
+        logger.info("Validating API response structure...")
+        
+        # Verificar mensajes de error de la API
+        if 'messages' in data and data['messages'] and len(data['messages']) > 0:
+            logger.error(f"NASA API returned error messages: {data['messages']}")
+            logger.info("Falling back to Montevideo data due to API error messages")
+            return load_fallback_data(start_year, end_year)
             
-        # Extract time series data - NASA POWER API structure
-        if 'properties' not in data or 'parameter' not in data['properties']:
-            # Esto atrapa el caso que ya tenías
-            print("Invalid response format from NASA POWER API - no 'properties.parameter' key found")
-            return empty_df
+        # Verificar estructura de datos requerida
+        if 'properties' not in data:
+            logger.error(f"Missing 'properties' key in API response. Available keys: {list(data.keys())}")
+            logger.info("Falling back to Montevideo data due to missing properties")
+            return load_fallback_data(start_year, end_year)
+            
+        if 'parameter' not in data['properties']:
+            logger.error(f"Missing 'parameter' key in API properties. Available keys: {list(data['properties'].keys())}")
+            logger.info("Falling back to Montevideo data due to missing parameter data")
+            return load_fallback_data(start_year, end_year)
         
         parameters = data['properties']['parameter']
+        logger.info(f"Available parameters in response: {list(parameters.keys())}")
         
-        # Extract T2M_MAX (Temperature Max) and PRECTOTCORR (Precipitation Total Corrected)
-        temp_data = parameters.get('T2M_MAX', {})
+        # Extracción de datos específicos: T2M_MAX, T2M_MIN, T2M (temperaturas) y PRECTOTCORR (precipitación)
+        logger.info("Extracting climate data from API response...")
+        temp_max_data = parameters.get('T2M_MAX', {})
+        temp_min_data = parameters.get('T2M_MIN', {})
+        temp_avg_data = parameters.get('T2M', {})
         precip_data = parameters.get('PRECTOTCORR', {})
         
-        if not temp_data or not precip_data:
-            print("Temperature or precipitation data not found in API response")
-            return empty_df
+        # Validar que todos los datos requeridos estén presentes
+        missing_params = []
+        if not temp_max_data:
+            missing_params.append('T2M_MAX')
+        if not temp_min_data:
+            missing_params.append('T2M_MIN')
+        if not temp_avg_data:
+            missing_params.append('T2M')
+        if not precip_data:
+            missing_params.append('PRECTOTCORR')
             
-        # Convert to DataFrame
+        if missing_params:
+            logger.error(f"Missing climate parameters in API response: {missing_params}")
+            logger.info("Falling back to Montevideo data due to missing climate parameters")
+            return load_fallback_data(start_year, end_year)
+            
+        logger.info("All required climate parameters found in API response")
+            
+        # Conversión de datos JSON a DataFrame de Pandas con logging detallado
+        logger.info("Converting JSON data to DataFrame...")
         records = []
-        for date_str, temp_value in temp_data.items():
-            if date_str in precip_data:
-                # Parse date (format: YYYYMMDD)
-                date_obj = datetime.strptime(date_str, '%Y%m%d')
-                
-                temp_celsius = temp_value if temp_value is not None else None
-                precip_mm = precip_data[date_str] if precip_data[date_str] is not None else None
-                
-                records.append({
-                    'Year': date_obj.year,
-                    'Month': date_obj.month,
-                    'Max_Temperature_C': temp_celsius,
-                    'Precipitation_mm': precip_mm
-                })
+        total_dates = len(temp_max_data)
+        processed_dates = 0
+        skipped_dates = 0
+        
+        for date_str, temp_max_value in temp_max_data.items():
+            if date_str in temp_min_data and date_str in temp_avg_data and date_str in precip_data:
+                try:
+                    # Parse de fecha en formato YYYYMMDD a objeto datetime
+                    date_obj = datetime.strptime(date_str, '%Y%m%d')
+                    
+                    # Conversión de valores (la NASA usa None para datos faltantes)
+                    temp_max_celsius = temp_max_value if temp_max_value is not None else None
+                    temp_min_celsius = temp_min_data[date_str] if temp_min_data[date_str] is not None else None
+                    temp_avg_celsius = temp_avg_data[date_str] if temp_avg_data[date_str] is not None else None
+                    precip_mm = precip_data[date_str] if precip_data[date_str] is not None else None
+                    
+                    # Creación de registro estructurado
+                    records.append({
+                        'Year': date_obj.year,
+                        'Month': date_obj.month,
+                        'Max_Temperature_C': temp_max_celsius,
+                        'Min_Temperature_C': temp_min_celsius,
+                        'Avg_Temperature_C': temp_avg_celsius,
+                        'Precipitation_mm': precip_mm
+                    })
+                    processed_dates += 1
+                    
+                except ValueError as e:
+                    logger.warning(f"Error parsing date {date_str}: {str(e)}")
+                    skipped_dates += 1
+            else:
+                skipped_dates += 1
+        
+        logger.info(f"Data conversion completed: {processed_dates} dates processed, {skipped_dates} dates skipped")
         
         if not records:
-            print("No valid data records found in API response")
-            return empty_df
+            logger.error("No valid data records found in API response")
+            logger.info("Falling back to Montevideo data due to empty data records")
+            return load_fallback_data(start_year, end_year)
         
+        # Creación del DataFrame final
+        logger.info("Creating final DataFrame...")
         df = pd.DataFrame(records)
         
-        # Remove any rows with null values
+        # Limpieza de datos: eliminación de filas con valores nulos
+        initial_count = len(df)
         df = df.dropna()
+        final_count = len(df)
+        removed_count = initial_count - final_count
         
-        # Sort by year and month
+        if removed_count > 0:
+            logger.warning(f"Removed {removed_count} records with missing values (from {initial_count} to {final_count})")
+        
+        # Ordenamiento por año y mes para análisis temporal
         df = df.sort_values(['Year', 'Month']).reset_index(drop=True)
         
-        print(f"Successfully fetched {len(df)} records from NASA POWER API")
+        # Validación final de datos
+        if len(df) == 0:
+            logger.error("DataFrame is empty after processing")
+            logger.info("Falling back to Montevideo data due to empty DataFrame")
+            return load_fallback_data(start_year, end_year)
+        
+        # Logging de estadísticas finales
+        logger.info(f"Successfully fetched {len(df)} records from NASA POWER API")
+        logger.info(f"Date range: {df['Year'].min()}-{df['Month'].min():02d} to {df['Year'].max()}-{df['Month'].max():02d}")
+        logger.info(f"Temperature range: {df['Max_Temperature_C'].min():.1f}C to {df['Max_Temperature_C'].max():.1f}C")
+        logger.info(f"Precipitation range: {df['Precipitation_mm'].min():.1f}mm to {df['Precipitation_mm'].max():.1f}mm")
+        
         return df
         
-    except Exception as e:
-        # 🚨 CAMBIO CLAVE 2: En caso de cualquier error de procesamiento, retorna un DF vacío 🚨
-        print(f"Fatal Error fetching or processing NASA POWER data: {str(e)}")
-        # Ya no lanzamos 'raise Exception', devolvemos el DF vacío para que el código que llama no falle.
-        return empty_df
-def load_historical_data(lat: float, lon: float, date_str: str) -> Dict[str, Any]:
-    """
-    Load and filter historical data by month using NASA POWER API
-    
-    Args:
-        lat: Latitude coordinate
-        lon: Longitude coordinate
-        date_str: Date string in YYYY-MM-DD format
+    except ValueError as e:
+        # Error de validación de coordenadas
+        logger.error(f"Coordinate validation error: {str(e)}")
+        logger.info("Falling back to Montevideo data due to coordinate validation error")
+        return load_fallback_data(start_year, end_year)
         
-    Returns:
-        Dict: Dictionary containing the filtered DataFrame and the climate trend analysis.
-    """
-    try:
-        # Extract month from date string
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-        month_filter = date_obj.month
-        
-        # Validate coordinates
-        if not (-90 <= lat <= 90):
-            raise ValueError("Latitude must be between -90 and 90")
-        if not (-180 <= lon <= 180):
-            raise ValueError("Longitude must be between -180 and 180")
-        
-        # Fetch 20 years of data (2004-2024)
-        current_year = datetime.now().year
-        start_year = current_year - 20  # 20 years back
-        end_year = current_year
-        
-        # Fetch data from NASA POWER API
-        df = fetch_nasa_power_data(
-            lat=lat,
-            lon=lon,
-            start_year=start_year,
-            end_year=end_year
-        )
-        
-        # Filter by the specified month
-        monthly_data = df[df['Month'] == month_filter].copy()
-        
-        if monthly_data.empty:
-            raise ValueError(f"No data found for month {month_filter}")
-        
-        print(f"Loaded {len(monthly_data)} records for month {month_filter} from NASA POWER API")
-        climate_trend = analyze_climate_change_trend(monthly_data)
-        return {
-            'data': monthly_data,
-            'climate_trend': climate_trend
-        }
+    except requests.exceptions.RequestException as e:
+        # Errores específicos de requests
+        logger.error(f"Request error: {str(e)}")
+        logger.info("Falling back to Montevideo data due to request error")
+        return load_fallback_data(start_year, end_year)
         
     except Exception as e:
-        print(f"Error in load_historical_data: {str(e)}")
-        # Return empty DataFrame instead of raising exception
-        print("NASA POWER API failed - returning empty DataFrame")
-        return {
-            'data': pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Precipitation_mm']),
-            'climate_trend': analyze_climate_change_trend(pd.DataFrame())
-        }
+        # Manejo de errores inesperados: retorna datos de fallback en lugar de DataFrame vacío
+        logger.error(f"Unexpected error fetching or processing NASA POWER data: {str(e)}")
+        logger.info("Falling back to Montevideo data due to unexpected error")
+        return load_fallback_data(start_year, end_year)
 
+# =============================================================================
+# CÁLCULOS DE RIESGO CLIMÁTICO
+# =============================================================================
+# Esta sección implementa la metodología P90 (percentil 90) para calcular
+# probabilidades de condiciones climáticas adversas. Incluye análisis de
+# riesgo de calor extremo, precipitación y frío estacional.
 
-def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
+def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """Calculate adverse weather probability based on temperature data"""
     if monthly_data.empty:
         raise ValueError("No data provided")
@@ -418,48 +414,6 @@ def calculate_adverse_probability(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         'risk_level': risk_level,
         'total_observations': total_observations,
         'adverse_count': adverse_count
-    }
-
-def get_plot_data(monthly_data: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Prepares temperature data for Plotly visualization (Historical Avg, P90, Recent Year).
-    """
-    if monthly_data.empty or 'Max_Temperature_C' not in monthly_data.columns:
-        return {
-            'historic_avg_c': 0.0,
-            'p90_threshold_c': 0.0,
-            'recent_year_data': [],
-            'recent_year': None,
-            'historic_range': {'min': 0.0, 'max': 0.0},
-            'historic_data_available': False
-        }
-
-    # 1. Calculate P90 Threshold
-    valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
-    p90_threshold = np.percentile(valid_temp_data['Max_Temperature_C'], 90)
-
-    # 2. Calculate the Overall Historical Average and Range
-    historic_avg = valid_temp_data['Max_Temperature_C'].mean()
-    historic_min = valid_temp_data['Max_Temperature_C'].min()
-    historic_max = valid_temp_data['Max_Temperature_C'].max()
-
-    # 3. Get Recent Year Data for comparison
-    recent_year = monthly_data['Year'].max()
-    recent_data = monthly_data[monthly_data['Year'] == recent_year].copy()
-    
-    # Create a 'Day' column for plotting (Day 1, Day 2, etc. of the month)
-    recent_data['Day'] = recent_data.index - recent_data.index[0] + 1
-    
-    # Structure the recent data for simple plotting (Day vs Temp)
-    recent_plot_data = recent_data[['Day', 'Max_Temperature_C']].to_dict('records')
-    
-    return {
-        'p90_threshold_c': round(p90_threshold, 1),
-        'historic_avg_c': round(historic_avg, 1),
-        'historic_range': {'min': round(historic_min, 1), 'max': round(historic_max, 1)},
-        'recent_year_data': recent_plot_data,
-        'recent_year': recent_year,
-        'historic_data_available': True
     }
 
 def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
@@ -528,7 +482,6 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
         'adverse_count': adverse_count
     }
 
-
 def get_seasonal_cold_threshold(month: int, activity: str = "general") -> float:
     """
     Get appropriate cold threshold based on season and activity type
@@ -550,7 +503,6 @@ def get_seasonal_cold_threshold(month: int, activity: str = "general") -> float:
     month_data = seasonal_adjustments.get(month, seasonal_adjustments[1])
     return month_data.get(activity, month_data["general"])
 
-
 def calculate_weather_risk(monthly_data: pd.DataFrame, risk_type: str, activity: str = "general") -> Dict[str, Any]:
     """
     Unified weather risk calculation function that handles all three risk types
@@ -567,12 +519,11 @@ def calculate_weather_risk(monthly_data: pd.DataFrame, risk_type: str, activity:
         raise ValueError(f"Invalid risk_type: {risk_type}. Must be 'heat', 'cold', or 'precipitation'")
     
     if risk_type == "heat":
-        return calculate_adverse_probability(monthly_data)
+        return calculate_heat_risk(monthly_data)
     elif risk_type == "cold":
         return calculate_cold_risk(monthly_data, activity)
     elif risk_type == "precipitation":
         return calculate_precipitation_risk(monthly_data)
-
 
 def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -> Dict[str, Any]:
     """
@@ -754,6 +705,11 @@ def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: i
         'data_period': f"{total_years} years ({unique_years[0]}-{unique_years[-1]})"
     }
 
+# =============================================================================
+# INTEGRACIÓN GEMINI AI 
+# =============================================================================
+# Funciones auxiliares para el manejo de respuestas de Gemini AI
+
 def generate_plan_b_with_gemini(
     activity: str,
     weather_condition: str,
@@ -925,71 +881,14 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
             }
                 
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"JSON parsing failed: {str(e)}")
-            # Enhanced fallback parsing
-            alternatives = parse_fallback_response(response.text)
-            
-            if len(alternatives) > 0:
-                return {
-                    "success": True,
-                    "message": f"Generated {len(alternatives)} Plan B alternatives using Gemini AI (fallback parsing)",
-                    "alternatives": alternatives,
-                    "ai_model": "Gemini 2.0 Flash (Fallback)",
-                    "generated_at": datetime.now().isoformat(),
-                    "warning": "Response parsing used fallback method"
-                }
-            else:
-                raise ValueError("Failed to parse response and no alternatives found")
+            logger.warning(f"⚠️ Gemini AI response parsing failed: {str(e)}")
+            logger.info("🔄 Falling back to predefined alternatives due to parsing error")
+            raise ValueError(f"Failed to parse Gemini response: {str(e)}")
     
     except Exception as e:
-        print(f"Error generating Plan B with Gemini: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Error generating Plan B: {str(e)}",
-            "alternatives": [],
-            "error_type": type(e).__name__
-        }
-
-
-def parse_fallback_response(response_text: str) -> list:
-    """
-    Parse Gemini response when JSON parsing fails
-    """
-    alternatives = []
-    lines = response_text.split('\n')
-    current_alt = {}
-    
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith('{') or line.startswith('}'):
-            continue
-            
-        # Look for activity titles (various patterns)
-        if any(keyword in line.lower() for keyword in ['visit', 'go to', 'try', 'enjoy', 'explore', 'discover']):
-            if current_alt and current_alt.get('title'):
-                alternatives.append(current_alt)
-            current_alt = {
-                "title": line,
-                "description": "",
-                "type": "mixed",
-                "reason": "",
-                "tips": "",
-                "location": "Various locations",
-                "duration": "1-3 hours",
-                "cost": "Varies"
-            }
-        elif current_alt:
-            if not current_alt.get("description"):
-                current_alt["description"] = line
-            elif not current_alt.get("reason"):
-                current_alt["reason"] = line
-            elif not current_alt.get("tips"):
-                current_alt["tips"] = line
-    
-    if current_alt and current_alt.get('title'):
-        alternatives.append(current_alt)
-    
-    return alternatives[:4]  # Limit to 4 alternatives
+        logger.error(f"❌ Error generating Plan B with Gemini: {str(e)}")
+        logger.info("🔄 Falling back to predefined alternatives due to Gemini error")
+        raise  # Re-lanzar para que api.py active el fallback
 
 
 def generate_fallback_plan_b(
@@ -1001,7 +900,16 @@ def generate_fallback_plan_b(
 ) -> Dict[str, Any]:
     """
     Generate fallback Plan B suggestions when Gemini is not available
+    
+    This function is activated automatically when:
+    - Gemini AI API is unavailable
+    - Gemini response parsing fails
+    - Any error occurs during Gemini processing
+    
+    Logs are automatically generated to track when fallback mode is used.
     """
+    logger.warning("📦 Using fallback Plan B system (Gemini AI unavailable)")
+    logger.info(f"Activity: {activity}, Weather: {weather_condition}, Risk: {risk_level}")
     fallback_alternatives = {
         "beach": {
             "cold": [
@@ -1122,6 +1030,8 @@ def generate_fallback_plan_b(
             }
         ]
     
+    logger.info(f"✅ Fallback Plan B generated {len(alternatives)} alternatives")
+    
     return {
         "success": True,
         "message": f"Generated {len(alternatives)} Plan B alternatives (fallback mode)",
@@ -1129,502 +1039,6 @@ def generate_fallback_plan_b(
         "ai_model": "Fallback System",
         "generated_at": datetime.now().isoformat()
     }
-
-
-def test_nasa_power_integration():
-    """
-    Test function to verify NASA POWER API integration
-    """
-    print("Testing NASA POWER API integration...")
-    
-    try:
-        # Test with Montevideo coordinates
-        test_lat = -34.90
-        test_lon = -56.16
-        test_start_year = 2020
-        test_end_year = 2024
-      
-        print(f"Testing with coordinates: ({test_lat}, {test_lon}")
-        print(f"Date range: {test_start_year} to {test_end_year}")
-
-        #Fetch data 
-        df = fetch_nasa_power_data(test_lat, test_lon, test_start_year, test_end_year)
-        
-        print(f"Successfully fetched {len(df)} records")
-
-        # Test month filtering and trend analysis
-        load_result = load_historical_data(3)   # March
-        march_data = load_result['data']
-        climate_trend = load_result['climate_trend']
-        print(f"March data: {len(march_data)} records")
-        
-        # Test the trend analysis
-        print(f"Climate Trend Status: {climate_trend['trend_status']}")
-        print(f"Trend Message: {climate_trend['message']}")
-
-        # Test Plotly data preparation
-        plot_result = get_plot_data(march_data['data'])
-        print(f"P90 Threshold for Plot: {plot_result['p90_threshold_c']}C")
-        print(f"Recent Year Data Points for Plot: {len(plot_result['recent_year_data'])}")
-        
-        # Test risk calculation
-        risk_analysis = calculate_adverse_probability(march_data)
-        print(f"Risk analysis: {risk_analysis['risk_level']} ({risk_analysis['probability']:.1f}%)")
-        
-        print("All tests passed!")
-        return True
-        
-    except Exception as e:
-        print(f"Test failed: {str(e)}")
-        return False
-
-
-def verify_data_source(month: int = 3):
-    """
-    Function to verify which data source is being used (NASA vs Mock)
-    """
-    print("=" * 60)
-    print("VERIFICACION DE FUENTE DE DATOS")
-    print("=" * 60)
-    
-    try:
-        # Test NASA POWER API directly
-        print("\n1. Probando NASA POWER API directamente...")
-        test_lat = -34.90
-        test_lon = -56.16
-        current_year = datetime.now().year
-        start_year = current_year - 20
-        
-        nasa_data = fetch_nasa_power_data(test_lat, test_lon, start_year, current_year)
-        print(f"   NASA POWER API: {len(nasa_data)} registros")
-        print(f"   Rango de anos: {nasa_data['Year'].min()}-{nasa_data['Year'].max()}")
-        print(f"   Temperatura: {nasa_data['Max_Temperature_C'].min():.1f}C - {nasa_data['Max_Temperature_C'].max():.1f}C")
-        
-        # Test load_historical_data function
-        print(f"\n2. Probando load_historical_data(month={month})...")
-        monthly_data = load_historical_data(month)
-        print(f"   Registros para mes {month}: {len(monthly_data)}")
-        
-        # Compare with mock data
-        print(f"\n3. Comparando con datos mock...")
-        try:
-            mock_df = pd.read_csv('mock_data.csv')
-            mock_monthly = mock_df[mock_df['Month'] == month]
-            print(f"   Mock data para mes {month}: {len(mock_monthly)} registros")
-            
-            if len(monthly_data) > len(mock_monthly) * 10:
-                print("   CONFIRMADO: Usando datos reales de NASA (mucho mas registros)")
-            else:
-                print("   ADVERTENCIA: Podria estar usando datos mock")
-                
-        except FileNotFoundError:
-            print("   Mock data no encontrado")
-        
-        # Show sample of real data
-        print(f"\n4. Muestra de datos reales (mes {month}):")
-        print(monthly_data.head())
-        
-        # Calculate risk with real data
-        print(f"\n5. Analisis de riesgo con datos reales:")
-        risk_analysis = calculate_adverse_probability(monthly_data, {'Temp': 30.0, 'Condition': 'wet'})
-        print(f"   Nivel de riesgo: {risk_analysis['risk_level']}")
-        print(f"   Probabilidad: {risk_analysis['probability']:.1f}%")
-        print(f"   Umbral: {risk_analysis['risk_threshold']:.1f}C")
-        
-        print("\n" + "=" * 60)
-        print("VERIFICACION COMPLETADA")
-        print("=" * 60)
-        
-        return True
-        
-    except Exception as e:
-        print(f"Error en verificacion: {str(e)}")
-        return False
-
-
-def create_p90_trend_chart(plot_data: list) -> Dict[str, Any]:
-    """
-    Crea el primer gráfico: Línea de tendencia del P90 a lo largo de los años
-    
-    Args:
-        plot_data: Lista de diccionarios con datos P90 por año
-        
-    Returns:
-        Dict: Configuración del gráfico Plotly
-    """
-    if not plot_data:
-        return {"error": "No data available for P90 trend chart"}
-    
-    df = pd.DataFrame(plot_data)
-    
-    # Crear gráfico de línea con P90
-    fig = go.Figure()
-    
-    # Línea principal del P90
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=df['P90_Max_Temp'],
-        mode='lines+markers',
-        name='P90 Temperatura Máxima',
-        line=dict(color='red', width=3),
-        marker=dict(size=8, color='red'),
-        hovertemplate='<b>Año:</b> %{x}<br><b>P90:</b> %{y:.1f}°C<extra></extra>'
-    ))
-    
-    # Línea de la media para comparación
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=df['Mean_Temp'],
-        mode='lines+markers',
-        name='Temperatura Media',
-        line=dict(color='blue', width=2, dash='dash'),
-        marker=dict(size=6, color='blue'),
-        hovertemplate='<b>Año:</b> %{x}<br><b>Media:</b> %{y:.1f}°C<extra></extra>'
-    ))
-    
-    # Calcular línea de tendencia
-    if len(df) > 1:
-        z = np.polyfit(df['Year'], df['P90_Max_Temp'], 1)
-        p = np.poly1d(z)
-        trend_line = p(df['Year'])
-        
-        fig.add_trace(go.Scatter(
-            x=df['Year'],
-            y=trend_line,
-            mode='lines',
-            name='Tendencia P90',
-            line=dict(color='orange', width=2, dash='dot'),
-            hovertemplate='<b>Año:</b> %{x}<br><b>Tendencia:</b> %{y:.1f}°C<extra></extra>'
-        ))
-    
-    # Configurar layout
-    fig.update_layout(
-        title=None,  # Remover título interno
-        xaxis_title='Año',
-        yaxis_title='Temperatura (°C)',
-        hovermode='x unified',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(size=9)  # Fuente más pequeña
-        ),
-        template='plotly_white',
-        height=300,
-        width=400,
-        margin=dict(l=40, r=40, t=20, b=40),  # Más espacio en los lados, menos arriba
-        autosize=False
-    )
-    
-    return {
-        "chart_type": "p90_trend",
-        "figure": fig.to_dict(),
-        "description": "Gráfico de línea que muestra la evolución del P90 de temperatura máxima a lo largo de los años"
-    }
-
-
-def create_climate_comparison_chart(plot_data: list) -> Dict[str, Any]:
-    """
-    Crea el segundo gráfico: Comparación histórica vs actual con barras y líneas
-    
-    Args:
-        plot_data: Lista de diccionarios con datos P90 por año
-        
-    Returns:
-        Dict: Configuración del gráfico Plotly
-    """
-    if not plot_data:
-        return {"error": "No data available for climate comparison chart"}
-    
-    df = pd.DataFrame(plot_data)
-    
-    # Crear subplot con ejes secundarios
-    fig = make_subplots(
-        rows=2, cols=1,
-        subplot_titles=('P90 vs Temperatura Máxima por Año', 'Rango de Temperaturas'),
-        vertical_spacing=0.15,  # Más espacio entre subplots
-        specs=[[{"secondary_y": False}], [{"secondary_y": False}]]
-    )
-    
-    # Gráfico 1: P90 vs Max Temp
-    fig.add_trace(
-        go.Bar(
-            x=df['Year'],
-            y=df['P90_Max_Temp'],
-            name='P90 Temperatura',
-            marker_color='lightcoral',
-            hovertemplate='<b>Año:</b> %{x}<br><b>P90:</b> %{y:.1f}°C<extra></extra>'
-        ),
-        row=1, col=1
-    )
-    
-    fig.add_trace(
-        go.Scatter(
-            x=df['Year'],
-            y=df['Max_Temp'],
-            mode='lines+markers',
-            name='Temperatura Máxima',
-            line=dict(color='darkred', width=3),
-            marker=dict(size=8),
-            hovertemplate='<b>Año:</b> %{x}<br><b>Máxima:</b> %{y:.1f}°C<extra></extra>'
-        ),
-        row=1, col=1
-    )
-    
-    # Gráfico 2: Rango de temperaturas (Min, Mean, Max)
-    fig.add_trace(
-        go.Scatter(
-            x=df['Year'],
-            y=df['Min_Temp'],
-            mode='lines+markers',
-            name='Temperatura Mínima',
-            line=dict(color='lightblue', width=2),
-            marker=dict(size=6),
-            hovertemplate='<b>Año:</b> %{x}<br><b>Mínima:</b> %{y:.1f}°C<extra></extra>'
-        ),
-        row=2, col=1
-    )
-    
-    fig.add_trace(
-        go.Scatter(
-            x=df['Year'],
-            y=df['Mean_Temp'],
-            mode='lines+markers',
-            name='Temperatura Media',
-            line=dict(color='blue', width=3),
-            marker=dict(size=8),
-            hovertemplate='<b>Año:</b> %{x}<br><b>Media:</b> %{y:.1f}°C<extra></extra>'
-        ),
-        row=2, col=1
-    )
-    
-    fig.add_trace(
-        go.Scatter(
-            x=df['Year'],
-            y=df['Max_Temp'],
-            mode='lines+markers',
-            name='Temperatura Máxima',
-            line=dict(color='red', width=3),
-            marker=dict(size=8),
-            hovertemplate='<b>Año:</b> %{x}<br><b>Máxima:</b> %{y:.1f}°C<extra></extra>'
-        ),
-        row=2, col=1
-    )
-    
-    # Configurar layout
-    fig.update_layout(
-        title=None,  # Remover título interno
-        height=280,  # Achicar más para que se vea completa
-        width=400,
-        template='plotly_white',
-        hovermode='x unified',
-        margin=dict(l=40, r=40, t=20, b=40),  # Más espacio en los lados, menos arriba
-        autosize=False,
-        legend=dict(
-            orientation="v",
-            yanchor="top",
-            y=1,
-            xanchor="left",
-            x=1.02,
-            font=dict(size=9)  # Fuente más pequeña
-        )
-    )
-    
-    # Configurar ejes
-    fig.update_xaxes(title_text="Año", row=2, col=1)
-    fig.update_yaxes(title_text="Temperatura (°C)", row=1, col=1)
-    fig.update_yaxes(title_text="Temperatura (°C)", row=2, col=1)
-    
-    return {
-        "chart_type": "climate_comparison",
-        "figure": fig.to_dict(),
-        "description": "Gráfico comparativo que muestra P90 vs temperaturas históricas y rangos de temperatura"
-    }
-
-
-def create_heat_risk_analysis_chart(plot_data: list) -> Dict[str, Any]:
-    """
-    Crea el tercer gráfico: Análisis de riesgo de calor con áreas y umbrales
-    
-    Args:
-        plot_data: Lista de diccionarios con datos P90 por año
-        
-    Returns:
-        Dict: Configuración del gráfico Plotly
-    """
-    if not plot_data:
-        return {"error": "No data available for heat risk analysis chart"}
-    
-    df = pd.DataFrame(plot_data)
-    
-    # Definir umbrales de riesgo
-    risk_thresholds = {
-        'low_risk': 25,      # Bajo riesgo
-        'moderate_risk': 30, # Riesgo moderado
-        'high_risk': 35,     # Alto riesgo
-        'extreme_risk': 40   # Riesgo extremo
-    }
-    
-    fig = go.Figure()
-    
-    # Áreas de riesgo
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=[risk_thresholds['extreme_risk']] * len(df),
-        fill=None,
-        mode='lines',
-        line_color='rgba(0,0,0,0)',
-        showlegend=False,
-        hoverinfo='skip'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=[risk_thresholds['high_risk']] * len(df),
-        fill='tonexty',
-        mode='lines',
-        line_color='rgba(0,0,0,0)',
-        fillcolor='rgba(255,0,0,0.3)',
-        name='Riesgo Extremo (>40°C)',
-        hoverinfo='skip'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=[risk_thresholds['moderate_risk']] * len(df),
-        fill='tonexty',
-        mode='lines',
-        line_color='rgba(0,0,0,0)',
-        fillcolor='rgba(255,165,0,0.3)',
-        name='Riesgo Alto (30-40°C)',
-        hoverinfo='skip'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=[risk_thresholds['low_risk']] * len(df),
-        fill='tonexty',
-        mode='lines',
-        line_color='rgba(0,0,0,0)',
-        fillcolor='rgba(255,255,0,0.3)',
-        name='Riesgo Moderado (25-30°C)',
-        hoverinfo='skip'
-    ))
-    
-    # Líneas de datos principales
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=df['P90_Max_Temp'],
-        mode='lines+markers',
-        name='P90 Temperatura',
-        line=dict(color='red', width=4),
-        marker=dict(size=10, color='red'),
-        hovertemplate='<b>Año:</b> %{x}<br><b>P90:</b> %{y:.1f}°C<extra></extra>'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=df['Year'],
-        y=df['Max_Temp'],
-        mode='lines+markers',
-        name='Temperatura Máxima',
-        line=dict(color='darkred', width=3, dash='dash'),
-        marker=dict(size=8, color='darkred'),
-        hovertemplate='<b>Año:</b> %{x}<br><b>Máxima:</b> %{y:.1f}°C<extra></extra>'
-    ))
-    
-    # Líneas de umbral
-    for threshold_name, threshold_value in risk_thresholds.items():
-        fig.add_hline(
-            y=threshold_value,
-            line_dash="dash",
-            line_color="gray",
-            annotation_text=f"Umbral {threshold_name.replace('_', ' ').title()}: {threshold_value}°C",
-            annotation_position="top right"
-        )
-    
-    # Configurar layout
-    fig.update_layout(
-        title=None,  # Remover título interno
-        xaxis_title='Año',
-        yaxis_title='Temperatura (°C)',
-        hovermode='x unified',
-        template='plotly_white',
-        height=320,
-        width=400,
-        margin=dict(l=40, r=40, t=20, b=40),  # Más espacio en los lados, menos arriba
-        autosize=False,
-        legend=dict(
-            orientation="v",
-            yanchor="top",
-            y=1,
-            xanchor="left",
-            x=1.02,
-            font=dict(size=9)  # Fuente más pequeña
-        )
-    )
-    
-    return {
-        "chart_type": "heat_risk_analysis",
-        "figure": fig.to_dict(),
-        "description": "Gráfico de análisis de riesgo que muestra P90 vs umbrales de riesgo de calor con áreas coloreadas"
-    }
-
-
-def generate_plotly_visualizations(historical_data: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Genera los 3 gráficos interactivos Plotly para visualización P90 y comparación histórica
-    
-    Args:
-        historical_data: DataFrame con datos históricos
-        
-    Returns:
-        Dict: Diccionario con los 3 gráficos generados
-    """
-    try:
-        # Obtener datos para los gráficos
-        climate_data = get_climate_trend_data(historical_data)
-        plot_data = climate_data.get('plot_data', [])
-        
-        if not plot_data:
-            return {
-                "error": "No data available for visualization",
-                "charts": []
-            }
-        
-        # Generar los 3 gráficos
-        charts = []
-        
-        # Gráfico 1: Tendencia P90
-        chart1 = create_p90_trend_chart(plot_data)
-        if "error" not in chart1:
-            charts.append(chart1)
-        
-        # Gráfico 2: Comparación climática
-        chart2 = create_climate_comparison_chart(plot_data)
-        if "error" not in chart2:
-            charts.append(chart2)
-        
-        # Gráfico 3: Análisis de riesgo
-        chart3 = create_heat_risk_analysis_chart(plot_data)
-        if "error" not in chart3:
-            charts.append(chart3)
-        
-        return {
-            "success": True,
-            "charts": charts,
-            "climate_trend": climate_data.get('climate_trend', ''),
-            "data_points": len(plot_data),
-            "generated_at": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Error generating visualizations: {str(e)}",
-            "charts": []
-        }
 
 
 # =============================================================================
@@ -1635,4 +1049,4 @@ def generate_plotly_visualizations(historical_data: pd.DataFrame) -> Dict[str, A
 
 if __name__ == "__main__":
     # Run verification when script is executed directly
-    verify_data_source()
+    pass

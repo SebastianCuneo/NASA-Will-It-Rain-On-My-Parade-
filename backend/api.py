@@ -25,6 +25,10 @@ from typing import Dict, Any
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import logging
+
+# Configuración de logging para la API
+logger = logging.getLogger(__name__)
 
 # Import funciones de análisis climático desde logic.py
 try:
@@ -183,7 +187,9 @@ async def get_risk_analysis(request: RiskRequest):
                 cold_risk=0.0
             )
         except Exception as gemini_error:
+            logger.warning(f"⚠️ Gemini AI falló, activando sistema fallback: {gemini_error}")
             print(f"⚠️ Gemini AI falló, usando sistema fallback: {gemini_error}")
+            
             plan_b = generate_fallback_plan_b(
                 activity=request.activity,
                 weather_condition=request.adverse_condition.lower(),
@@ -191,6 +197,7 @@ async def get_risk_analysis(request: RiskRequest):
                 location=f"{request.latitude}, {request.longitude}",
                 season="Summer"
             )
+            logger.info("✅ Sistema fallback activado correctamente")
         
         print(f"✅ Plan B generado: {len(plan_b.get('alternatives', []))} alternativas")
         

@@ -12,7 +12,7 @@ import os
 # Add the backend directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from logic import calculate_weather_risk, calculate_adverse_probability, calculate_cold_risk, calculate_precipitation_risk
+from logic import calculate_weather_risk, calculate_heat_risk, calculate_cold_risk, calculate_precipitation_risk
 
 
 class TestCalculateWeatherRisk(unittest.TestCase):
@@ -161,7 +161,7 @@ class TestCalculateWeatherRisk(unittest.TestCase):
         """Test that unified function returns same results as original functions"""
         # Test heat risk consistency
         unified_heat = calculate_weather_risk(self.summer_data, "heat")
-        original_heat = calculate_adverse_probability(self.summer_data)
+        original_heat = calculate_heat_risk(self.summer_data)
         
         self.assertEqual(unified_heat['probability'], original_heat['probability'])
         self.assertEqual(unified_heat['risk_threshold'], original_heat['risk_threshold'])
