@@ -72,13 +72,11 @@ const useWeatherAPI = () => {
       console.info('🌐 API Response received:', { 
         success: apiData.success,
         hasRiskAnalysis: !!apiData.risk_analysis,
-        hasPlanB: !!apiData.plan_b,
         responseSize: JSON.stringify(apiData).length
       });
       
       // Extraer datos completos de la respuesta API del endpoint /api/risk-working
       const riskAnalysis = apiData.risk_analysis;
-      const planB = apiData.plan_b;
       const climateTrend = apiData.climate_trend;
       const plotData = apiData.plot_data || [];
       
@@ -102,7 +100,6 @@ const useWeatherAPI = () => {
         temperature_risk: temperatureRisk,
         precipitation_risk: precipitationRisk,
         cold_risk: coldRisk,
-        plan_b: planB,
         
         // Datos de análisis climático
         plot_data: plotData,
