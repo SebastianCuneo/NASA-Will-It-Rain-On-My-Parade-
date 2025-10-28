@@ -57,9 +57,7 @@ try:
     
     from logic import (
         fetch_nasa_power_data,
-        calculate_heat_risk,
-        calculate_cold_risk, 
-        calculate_precipitation_risk,
+        calculate_weather_risk,
         generate_plan_b_with_gemini,
         generate_fallback_plan_b,
         get_climate_trend_data
@@ -141,25 +139,80 @@ async def get_risk_analysis(request: RiskRequest):
     
     try:
         # ========================================
+        # PASO 0: EXTRAER MES DE LA FECHA DEL EVENTO
+        # ========================================
+        print(f"📅 Extrayendo mes de la fecha: {request.event_date}")
+        
+        # Intentar parsear fecha en formato DD/MM/YYYY o YYYY-MM-DD
+        try:
+            if '/' in request.event_date:
+                # Formato DD/MM/YYYY
+                event_date_obj = datetime.strptime(request.event_date, "%d/%m/%Y")
+            else:
+                # Formato YYYY-MM-DD
+                event_date_obj = datetime.strptime(request.event_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Formato de fecha inválido: {request.event_date}. Use 'DD/MM/YYYY' o 'YYYY-MM-DD'")
+        
+        target_month = event_date_obj.month
+        target_year = event_date_obj.year
+        print(f"✅ Fecha parseada: año={target_year}, mes={target_month}")
+        
+        # ========================================
         # PASO 1: OBTENER DATOS HISTÓRICOS
         # ========================================
         print("📊 Obteniendo datos históricos de NASA POWER API...")
         
-        # TODO: Obtener datos reales de NASA usando fetch_nasa_power_data
-        # Por ahora usar datos de prueba para desarrollo
-        years = list(range(2020, 2025))
-        historical_data = pd.DataFrame({
-            'Year': years,
-            'Month': [3] * len(years),
-            'Max_Temperature_C': [25.5, 26.2, 27.1, 28.3, 29.0],
-            'Precipitation_mm': [5.2, 3.8, 4.1, 6.7, 2.3]
+        # Calcular años para la búsqueda (20 años de historia desde el año del evento)
+        start_year = target_year - 20
+        end_year = target_year - 1  # Hasta el año anterior al evento
+        
+        print(f"📊 Buscando datos de {start_year} a {end_year}")
+        
+        # TODO: Usar fetch_nasa_power_data para datos reales
+        # Por ahora usar datos de prueba con datos para múltiples meses
+        years = []
+        months = []
+        temps = []
+        precip = []
+        
+        # Crear datos de prueba para 20 años con todos los meses
+        for year in range(start_year, end_year + 1):
+            for month in range(1, 13):
+                years.append(year)
+                months.append(month)
+                # Simular temperatura máxima con variación por mes
+                temps.append(20 + month * 1.5 + (year - start_year) * 0.1)
+                precip.append(5.0 + (month - 6) * 0.5)
+            
+            historical_data = pd.DataFrame({
+                'Year': years,
+            'Month': months,
+            'Max_Temperature_C': temps,
+            'Precipitation_mm': precip
         })
+        
+        print(f"✅ Datos históricos preparados: {len(historical_data)} registros")
 
         # ========================================
         # PASO 2: ANÁLISIS DE RIESGO P90
         # ========================================
-        print("🔬 Calculando análisis de riesgo P90...")
-        risk_analysis = calculate_heat_risk(historical_data)  # Usar calculate_heat_risk
+        print(f"🔬 Calculando análisis de riesgo para el mes {target_month}...")
+        
+        # Determinar tipo de riesgo según la condición adversa
+        adverse_condition_lower = request.adverse_condition.lower()
+        if 'hot' in adverse_condition_lower or 'heat' in adverse_condition_lower:
+            risk_type = "heat"
+        elif 'cold' in adverse_condition_lower or 'frio' in adverse_condition_lower:
+            risk_type = "cold"
+        elif 'rain' in adverse_condition_lower or 'precip' in adverse_condition_lower:
+            risk_type = "precipitation"
+        else:
+            # Default a heat
+            risk_type = "heat"
+        
+        # Calcular riesgo usando calculate_weather_risk con el mes objetivo
+        risk_analysis = calculate_weather_risk(historical_data, risk_type, target_month)
         print(f"✅ Análisis completado: {risk_analysis.get('risk_level', 'N/A')}")
 
         # ========================================

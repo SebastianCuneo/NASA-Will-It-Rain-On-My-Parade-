@@ -20,7 +20,6 @@ import time
 import os
 import logging
 
-
 # Configuración de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -58,7 +57,13 @@ def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame con datos de fallback de Montevideo
     """
+    # Validar años antes de intentar cargar
+    if start_year > end_year:
+        logger.error(f"Invalid year range: start_year ({start_year}) > end_year ({end_year})")
+        return pd.DataFrame(columns=['Year', 'Month', 'Max_Temperature_C', 'Min_Temperature_C', 'Avg_Temperature_C', 'Precipitation_mm'])
+    
     try:
+        logger.info(f"Attempting to load fallback data for years {start_year}-{end_year}")
         # Ruta al archivo de fallback
         fallback_file = os.path.join(os.path.dirname(__file__), 'FALLBACK_MONTEVIDEO_DATA.csv')
         
@@ -111,7 +116,7 @@ def validate_coordinates(lat: float, lon: float) -> bool:
     La NASA POWER API puede obtener datos de cualquier lugar del mundo, por lo que
     esta validación solo verifica que las coordenadas estén dentro de rangos
     geográficos válidos (no fuera de la Tierra).
-    
+
     Args:
         lat: Latitud en grados decimales (-90 a 90)
         lon: Longitud en grados decimales (-180 a 180)
@@ -366,47 +371,86 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
 # probabilidades de condiciones climáticas adversas. Incluye análisis de
 # riesgo de calor extremo, precipitación y frío estacional.
 
+def filter_data_by_month(historical_data: pd.DataFrame, target_month: int) -> pd.DataFrame:
+    """
+    Filter historical data to include only records from the target month
+    
+    Args:
+        historical_data: DataFrame with historical climate data (20 years)
+        target_month: Target month (1-12) to filter data for
+        
+    Returns:
+        DataFrame filtered to the target month (monthly data for analysis)
+    """
+    if historical_data.empty:
+        logger.warning("Empty historical data provided to filter_data_by_month")
+        return historical_data
+    
+    if 'Month' not in historical_data.columns:
+        logger.warning("No 'Month' column in historical data, returning original data")
+        return historical_data
+    
+    # Filter data for the target month
+    monthly_data = historical_data[historical_data['Month'] == target_month].copy()
+    
+    logger.info(f"Filtered data for month {target_month}: {len(monthly_data)} records")
+    
+    return monthly_data
+
 def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
-    """Calculate adverse weather probability based on temperature data"""
-    if monthly_data.empty:
-        raise ValueError("No data provided")
-    
-    if 'Max_Temperature_C' not in monthly_data.columns:
-        raise ValueError("Temperature data not found")
-    
-    # Filter out invalid values (NASA uses -999 for missing data)
-    valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
-    
-    if len(valid_temp_data) == 0:
+    """
+    Calculate heat risk using P90 methodology on Max_Temperature_C
+    """
+    # Validación inicial
+    if monthly_data.empty or 'Max_Temperature_C' not in monthly_data.columns:
         return {
             'probability': 0.0,
             'risk_threshold': 0.0,
-            'status_message': "No valid temperature data for P90 calculation.",
+            'status_message': "No temperature data available",
             'risk_level': "UNKNOWN",
-            'total_observations': len(monthly_data),
+            'total_observations': 0,
             'adverse_count': 0
         }
-    risk_threshold = np.percentile(valid_temp_data['Max_Temperature_C'], 90) ###MAAAL
     
+    # Filtrar valores inválidos
+    valid_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
+    if len(valid_data) == 0:
+        return {
+            'probability': 0.0,
+            'risk_threshold': 0.0,
+            'status_message': "No valid temperature data",
+            'risk_level': "UNKNOWN",
+            'total_observations': 0,
+            'adverse_count': 0
+        }
     
-    # Count adverse events (days above the hot weather threshold)
-    adverse_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] > risk_threshold]
-    total_observations = len(valid_temp_data)
+    # Calcular threshold usando P90
+    risk_threshold = np.percentile(valid_data['Max_Temperature_C'], 90)
+    
+    # Contar eventos adversos (días > threshold)
+    adverse_events = valid_data[valid_data['Max_Temperature_C'] > risk_threshold]
+    total_observations = len(valid_data)
     adverse_count = len(adverse_events)
-    
-    # Calculate probability as percentage of days above threshold
     probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
     
-    # Generate status message
-    if risk_threshold >= 30.0: # If the extreme temperature (P90) is 30C or more
+    # Determinar nivel de riesgo
+    if probability >= 20:
         risk_level = "HIGH"
-        status_message = f"🚨 HIGH RISK of extreme heat! P90 Threshold: {risk_threshold:.1f}°C. Extreme heat days expected to exceed this."
-    elif risk_threshold >= 25.0: # If the extreme temperature (P90) is between 25C and 30C
+    elif probability >= 10:
         risk_level = "MODERATE"
-        status_message = f"⚠️ MODERATE RISK of warm weather. P90 Threshold: {risk_threshold:.1f}°C. Warm weather expected on average."
-    else:
+    elif probability >= 5:
         risk_level = "LOW"
-        status_message = f"☀️ LOW RISK of extreme heat. P90 Threshold: {risk_threshold:.1f}°C. Comfortable temperatures expected."
+    else:
+        risk_level = "MINIMAL"
+    
+    # Mensaje personalizado
+    if risk_threshold >= 30.0:
+        status_message = f"🚨 HIGH RISK of extreme heat! P90 Threshold: {risk_threshold:.1f}°C."
+    elif risk_threshold >= 25.0:
+        status_message = f"⚠️ MODERATE RISK of warm weather. P90 Threshold: {risk_threshold:.1f}°C."
+    else:
+        status_message = f"☀️ LOW RISK of extreme heat. P90 Threshold: {risk_threshold:.1f}°C."
+    
     return {
         'probability': round(probability, 1),
         'risk_threshold': round(risk_threshold, 1),
@@ -418,15 +462,10 @@ def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
 
 def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
-    Calculate precipitation risk using 90th percentile methodology
-    
-    Args:
-        monthly_data: DataFrame with precipitation data
-        
-    Returns:
-        Dict with precipitation risk analysis
+    Calculate precipitation risk using P90 methodology on Precipitation_mm
     """
-    if monthly_data.empty:
+    # Validación inicial
+    if monthly_data.empty or 'Precipitation_mm' not in monthly_data.columns:
         return {
             'probability': 0.0,
             'risk_threshold': 0.0,
@@ -436,161 +475,161 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
             'adverse_count': 0
         }
     
-    # Filter out invalid values (NASA uses -999 for missing data)
-    valid_precip_data = monthly_data[monthly_data['Precipitation_mm'] >= 0]
-    
-    if len(valid_precip_data) == 0:
+    # Filtrar valores inválidos (NASA usa >= 0 para precipitation)
+    valid_data = monthly_data[monthly_data['Precipitation_mm'] >= 0]
+    if len(valid_data) == 0:
         return {
             'probability': 0.0,
             'risk_threshold': 0.0,
-            'status_message': "No valid precipitation data available",
+            'status_message': "No valid precipitation data",
             'risk_level': "UNKNOWN",
             'total_observations': 0,
             'adverse_count': 0
         }
     
-    # Use a fixed threshold for significant precipitation (5mm is noticeable rain)
-    precip_threshold = 5.0
+    # Usar threshold fijo de 5mm (precipitación significativa)
+    risk_threshold = 5.0
     
-    # Count days with precipitation above threshold
-    adverse_count = len(valid_precip_data[valid_precip_data['Precipitation_mm'] > precip_threshold])
-    total_observations = len(monthly_data)
-    
-    # Calculate probability as percentage of days with significant precipitation
+    # Contar eventos adversos (días con precipitation > threshold)
+    adverse_events = valid_data[valid_data['Precipitation_mm'] > risk_threshold]
+    total_observations = len(valid_data)
+    adverse_count = len(adverse_events)
     probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
     
-    # Determine risk level
+    # Determinar nivel de riesgo
     if probability >= 20:
         risk_level = "HIGH"
-        status_message = "🌧️ HIGH RISK of heavy precipitation. Consider indoor alternatives."
     elif probability >= 10:
         risk_level = "MODERATE"
-        status_message = "🌦️ MODERATE RISK of rain. Bring umbrella."
     elif probability >= 5:
         risk_level = "LOW"
-        status_message = "🌤️ LOW RISK of precipitation. Light rain possible."
     else:
         risk_level = "MINIMAL"
+    
+    # Mensaje personalizado
+    if probability >= 20:
+        status_message = "🌧️ HIGH RISK of heavy precipitation. Consider indoor alternatives."
+    elif probability >= 10:
+        status_message = "🌦️ MODERATE RISK of rain. Bring umbrella."
+    elif probability >= 5:
+        status_message = "🌤️ LOW RISK of precipitation. Light rain possible."
+    else:
         status_message = "☀️ MINIMAL RISK of rain. Dry conditions expected."
     
     return {
         'probability': round(probability, 1),
-        'risk_threshold': round(precip_threshold, 1),
+        'risk_threshold': round(risk_threshold, 1),
         'status_message': status_message,
         'risk_level': risk_level,
         'total_observations': total_observations,
         'adverse_count': adverse_count
     }
 
-def get_seasonal_cold_threshold(month: int, activity: str = "general") -> float:
+def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
-    Get appropriate cold threshold based on season and activity type
+    Calculate cold weather risk using P10 methodology on Max_Temperature_C
     """
-    seasonal_adjustments = {
-        12: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
-        1: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
-        2: {"base": 20.0, "beach": 22.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
-        3: {"base": 20.0, "beach": 23.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
-        4: {"base": 18.0, "beach": 21.0, "picnic": 16.0, "running": 14.0, "general": 18.0},
-        5: {"base": 16.0, "beach": 19.0, "picnic": 14.0, "running": 12.0, "general": 16.0},
-        6: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
-        7: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
-        8: {"base": 14.0, "beach": 17.0, "picnic": 12.0, "running": 10.0, "general": 14.0},
-        9: {"base": 16.0, "beach": 19.0, "picnic": 14.0, "running": 12.0, "general": 16.0},
-        10: {"base": 18.0, "beach": 21.0, "picnic": 16.0, "running": 14.0, "general": 18.0},
-        11: {"base": 20.0, "beach": 23.0, "picnic": 18.0, "running": 16.0, "general": 20.0},
-    }
-    month_data = seasonal_adjustments.get(month, seasonal_adjustments[1])
-    return month_data.get(activity, month_data["general"])
-
-def calculate_weather_risk(monthly_data: pd.DataFrame, risk_type: str, activity: str = "general") -> Dict[str, Any]:
-    """
-    Unified weather risk calculation function that handles all three risk types
-    
-    Args:
-        monthly_data: DataFrame with weather data
-        risk_type: Type of risk to calculate ("heat" | "cold" | "precipitation")
-        activity: Activity type (optional, used only for cold risk)
-        
-    Returns:
-        Dict with risk analysis results
-    """
-    if risk_type not in ["heat", "cold", "precipitation"]:
-        raise ValueError(f"Invalid risk_type: {risk_type}. Must be 'heat', 'cold', or 'precipitation'")
-    
-    if risk_type == "heat":
-        return calculate_heat_risk(monthly_data)
-    elif risk_type == "cold":
-        return calculate_cold_risk(monthly_data, activity)
-    elif risk_type == "precipitation":
-        return calculate_precipitation_risk(monthly_data)
-
-def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -> Dict[str, Any]:
-    """
-    Calculate cold weather risk using seasonal and activity-aware methodology (10th Percentile)
-    """
-    if monthly_data.empty:
+    # Validación inicial
+    if monthly_data.empty or 'Max_Temperature_C' not in monthly_data.columns:
         return {
             'probability': 0.0,
             'risk_threshold': 0.0,
             'status_message': "No temperature data available",
             'risk_level': "UNKNOWN",
             'total_observations': 0,
-            'adverse_count': 0,
-            'season': 'Unknown'
+            'adverse_count': 0
         }
     
-    valid_temp_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
-    
-    if len(valid_temp_data) == 0:
+    # Filtrar valores inválidos
+    valid_data = monthly_data[monthly_data['Max_Temperature_C'] > -100]
+    if len(valid_data) == 0:
         return {
             'probability': 0.0,
             'risk_threshold': 0.0,
-            'status_message': "No valid temperature data available",
+            'status_message': "No valid temperature data",
             'risk_level': "UNKNOWN",
             'total_observations': 0,
-            'adverse_count': 0,
-            'season': 'Unknown'
+            'adverse_count': 0
         }
     
-    month = monthly_data['Month'].iloc[0] if not monthly_data.empty else 1
-    cold_threshold = get_seasonal_cold_threshold(month, activity)
-    cold_events = valid_temp_data[valid_temp_data['Max_Temperature_C'] < cold_threshold]
-    total_observations = len(monthly_data)
-    cold_count = len(cold_events)
-    probability = (cold_count / total_observations) * 100 if total_observations > 0 else 0
+    # Calcular threshold usando P10
+    risk_threshold = np.percentile(valid_data['Max_Temperature_C'], 10)
     
-    season_names = {
-        12: "Summer", 1: "Summer", 2: "Summer",
-        3: "Autumn", 4: "Autumn", 5: "Autumn", 
-        6: "Winter", 7: "Winter", 8: "Winter",
-        9: "Spring", 10: "Spring", 11: "Spring"
-    }
-    season = season_names.get(month, "Unknown")
+    # Contar eventos adversos (días < threshold)
+    adverse_events = valid_data[valid_data['Max_Temperature_C'] < risk_threshold]
+    total_observations = len(valid_data)
+    adverse_count = len(adverse_events)
+    probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
     
+    # Determinar nivel de riesgo
     if probability >= 20:
         risk_level = "HIGH"
-        status_message = f"🧊 HIGH RISK of cold weather in {season}. Consider warmer dates or indoor alternatives!"
     elif probability >= 10:
         risk_level = "MODERATE"
-        status_message = f"❄️ MODERATE RISK of cold weather in {season}. Dress warmly!"
     elif probability >= 5:
         risk_level = "LOW"
-        status_message = f"🌤️ LOW RISK of cold weather in {season}. Light jacket recommended."
     else:
         risk_level = "MINIMAL"
-        status_message = f"☀️ MINIMAL RISK of cold weather in {season}. Comfortable temperatures expected."
+    
+    # Mensaje personalizado
+    if probability >= 20:
+        status_message = "🧊 HIGH RISK of cold weather. Consider warmer dates or indoor alternatives!"
+    elif probability >= 10:
+        status_message = "❄️ MODERATE RISK of cold weather. Dress warmly!"
+    elif probability >= 5:
+        status_message = "🌤️ LOW RISK of cold weather. Light jacket recommended."
+    else:
+        status_message = "☀️ MINIMAL RISK of cold weather. Comfortable temperatures expected."
     
     return {
         'probability': round(probability, 1),
-        'risk_threshold': round(cold_threshold, 1),
+        'risk_threshold': round(risk_threshold, 1),
         'status_message': status_message,
         'risk_level': risk_level,
         'total_observations': total_observations,
-        'adverse_count': cold_count,
-        'season': season,
-        'activity': activity
+        'adverse_count': adverse_count
     }
+
+def calculate_weather_risk(historical_data: pd.DataFrame, risk_type: str, target_month: int) -> Dict[str, Any]:
+    """
+    Unified weather risk calculation function that handles all three risk types.
+    Filters data by target month before calculating risk.
+    
+    Args:
+        historical_data: DataFrame with historical weather data (20 years)
+        risk_type: Type of risk to calculate ("heat" | "cold" | "precipitation")
+        target_month: Target month (1-12) for the event date
+        
+    Returns:
+        Dict with risk analysis results
+    """
+    logger.info(f"Calculating {risk_type} risk for target month {target_month}")
+    logger.info(f"Historical data: {len(historical_data)} total records")
+    
+    if risk_type not in ["heat", "cold", "precipitation"]:
+        logger.error(f"Invalid risk_type: {risk_type}")
+        raise ValueError(f"Invalid risk_type: {risk_type}. Must be 'heat', 'cold', or 'precipitation'")
+    
+    # Filter data by target month to get "monthly data"
+    monthly_data = filter_data_by_month(historical_data, target_month)
+    logger.info(f"Monthly data after filtering: {len(monthly_data)} records for month {target_month}")
+    
+    # Calculate the specific risk type
+    if risk_type == "heat":
+        logger.info("Calculating heat risk using P90 methodology")
+        result = calculate_heat_risk(monthly_data)
+        logger.info(f"Heat risk calculated: probability={result['probability']}%, level={result['risk_level']}")
+        return result
+    elif risk_type == "cold":
+        logger.info("Calculating cold risk using P10 methodology")
+        result = calculate_cold_risk(monthly_data)
+        logger.info(f"Cold risk calculated: probability={result['probability']}%, level={result['risk_level']}")
+        return result
+    elif risk_type == "precipitation":
+        logger.info("Calculating precipitation risk using threshold methodology")
+        result = calculate_precipitation_risk(monthly_data)
+        logger.info(f"Precipitation risk calculated: probability={result['probability']}%, level={result['risk_level']}")
+        return result
 
 # =============================================================================
 # ANÁLISIS DE TENDENCIAS CLIMÁTICAS
@@ -599,7 +638,7 @@ def calculate_cold_risk(monthly_data: pd.DataFrame, activity: str = "general") -
 # comparando datos recientes con promedios históricos para detectar
 # patrones de cambio en las condiciones climáticas.
 
-def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: int = 5) -> Dict[str, Any]:
+def analyze_climate_change_trend(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
     Análisis de tendencias climáticas basado en metodología IPCC/WMO.
     
@@ -621,7 +660,6 @@ def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: i
     
     Args:
         monthly_data: DataFrame con datos históricos del mes específico (20 años)
-        comparison_years: Años a comparar por período (por defecto 5 años)
         
     Returns:
         Dict con análisis de tendencia climática:
@@ -666,7 +704,8 @@ def analyze_climate_change_trend(monthly_data: pd.DataFrame, comparison_years: i
             'data_period': f"{total_years} years"
         }
     
-    # Períodos científicos: primeros 5 años vs últimos 5 años
+    # Períodos científicos: primeros 5 años vs últimos 5 años (metodología IPCC/WMO fija)
+    comparison_years = 5  # Metodología IPCC/WMO estándar: comparar primeros 5 vs últimos 5 años
     early_years = unique_years[:comparison_years]      # Primeros 5 años
     recent_years = unique_years[-comparison_years:]     # Últimos 5 años
     
