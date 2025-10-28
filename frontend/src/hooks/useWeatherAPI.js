@@ -52,7 +52,7 @@ const useWeatherAPI = () => {
     
       // INFO: Log del payload antes del envío al backend
       console.info('🌐 API Payload:', apiPayload);
-      console.debug('🌐 API URL: https://nasa-will-it-rain-on-my-parade.onrender.com/risk');
+      console.debug('🌐 API URL: https://nasa-will-it-rain-on-my-parade.onrender.com/api/risk');
       
       // Llamada al backend FastAPI usando endpoint único consolidado
       const response = await fetch('https://nasa-will-it-rain-on-my-parade.onrender.com/api/risk', {
