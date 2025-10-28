@@ -81,12 +81,12 @@ const WeatherResults = ({ data, isNightMode }) => {
       )}
       
       {/* 1. RISK ANALYSIS SECTION */}
-      <div className={`border rounded-xl p-6 ${
+      <div className={`border-2 rounded-xl p-6 ${
         isNightMode 
           ? 'bg-slate-800 border-slate-700' 
-          : 'bg-white/90 border-white/30'
+          : 'bg-white/90 border-gray-300'
       }`}>
-        <h2 className={`text-2xl font-bold text-center mb-4 ${isNightMode ? 'text-white' : 'text-gray-800'}`}>
+        <h2 className={`text-2xl font-bold text-center mb-4 ${isNightMode ? 'text-slate-300' : 'text-gray-800'}`}>
           ⚠️ Weather Risk Analysis
         </h2>
         <p className={`text-center mb-6 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
@@ -105,26 +105,83 @@ const WeatherResults = ({ data, isNightMode }) => {
             </span>
           </div>
           
-          <div className={`mt-6 text-left p-4 rounded-lg border ${
-            isNightMode 
-              ? 'bg-slate-900/50 border-slate-700' 
-              : 'bg-gray-50 border-gray-200'
-          }`}>
-            <p className={`${isNightMode ? 'text-slate-300' : 'text-gray-600'}`}>
-              {riskMessage}
-            </p>
+          {/* Stats Grid */}
+          <div className={`mt-6 grid grid-cols-2 gap-3`}>
+            <div className={`p-4 rounded-lg border-2 ${
+              isNightMode 
+                ? 'bg-slate-800 border-slate-700' 
+                : 'bg-gray-100 border-gray-300'
+            }`}>
+              <div className={`text-xs font-semibold mb-2 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                Risk Threshold
+              </div>
+              <div className={`text-2xl font-bold ${isNightMode ? 'text-slate-300' : 'text-gray-800'}`}>
+                {riskAnalysis?.risk_threshold || 'N/A'}
+              </div>
+              <div className={`text-xs mt-1 ${isNightMode ? 'text-slate-500' : 'text-gray-500'}`}>
+                Used for probability calculation
+              </div>
+            </div>
+            
+            <div className={`p-4 rounded-lg border-2 ${
+              isNightMode 
+                ? 'bg-purple-900/30 border-purple-600' 
+                : 'bg-purple-50 border-purple-400'
+            }`}>
+              <div className={`text-xs font-semibold mb-2 ${isNightMode ? 'text-purple-300' : 'text-purple-700'}`}>
+                Extreme Threshold
+              </div>
+              <div className={`text-2xl font-bold ${isNightMode ? 'text-purple-200' : 'text-purple-800'}`}>
+                {(() => {
+                  // Extract extreme threshold from message (e.g., "Extreme heat threshold: 33.7°C (P90)")
+                  const match = riskMessage?.match(/Extreme.*?threshold:\s*([0-9.]+)/i);
+                  return match ? match[1] : 'N/A';
+                })()}
+              </div>
+              <div className={`text-xs mt-1 ${isNightMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                {riskAnalysis?.risk_threshold < 20 ? 'P10 (extreme cold)' : 
+                 riskMessage?.includes('precipitation') ? 'P90 (extreme rainfall)' :
+                 'P90 (extreme heat)'}
+              </div>
+            </div>
+            
+            <div className={`p-3 rounded-lg border-2 ${
+              isNightMode 
+                ? 'bg-slate-800 border-slate-700' 
+                : 'bg-gray-100 border-gray-300'
+            }`}>
+              <div className={`text-xs font-semibold mb-1 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                Adverse Days
+              </div>
+              <div className={`text-xl font-bold ${isNightMode ? 'text-slate-300' : 'text-gray-800'}`}>
+                {riskAnalysis?.adverse_count || 0}
+              </div>
+            </div>
+            
+            <div className={`p-3 rounded-lg border-2 ${
+              isNightMode 
+                ? 'bg-slate-800 border-slate-700' 
+                : 'bg-gray-100 border-gray-300'
+            }`}>
+              <div className={`text-xs font-semibold mb-1 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                Total Days
+              </div>
+              <div className={`text-xl font-bold ${isNightMode ? 'text-slate-300' : 'text-gray-800'}`}>
+                {riskAnalysis?.total_observations || 0}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* 2. PLAN B - COMPATIBLE ACTIVITIES */}
       {planBSuccess && planBData.length > 0 && (
-        <div className={`border rounded-xl p-6 ${
+        <div className={`border-2 rounded-xl p-6 ${
           isNightMode 
             ? 'bg-slate-800 border-slate-700' 
-            : 'bg-white/90 border-white/30'
+            : 'bg-white/90 border-gray-300'
         }`}>
-          <h2 className={`text-2xl font-bold text-center mb-4 ${isNightMode ? 'text-white' : 'text-gray-800'}`}>
+          <h2 className={`text-2xl font-bold text-center mb-4 ${isNightMode ? 'text-slate-300' : 'text-gray-800'}`}>
             🌟 Compatible Activities
           </h2>
           <p className={`text-center mb-6 text-sm ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
@@ -133,10 +190,10 @@ const WeatherResults = ({ data, isNightMode }) => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {planBData.map((alt, index) => (
-              <div key={index} className={`p-4 rounded-lg border ${
+              <div key={index} className={`p-4 rounded-lg border-2 ${
                             isNightMode 
-                  ? 'bg-slate-700/50 border-slate-600' 
-                  : 'bg-gray-50 border-gray-200'
+                  ? 'bg-slate-800 border-slate-700' 
+                  : 'bg-gray-50 border-gray-300'
                           }`}>
                             <div className="flex items-start justify-between mb-2">
                   <h3 className={`font-bold text-lg ${isNightMode ? 'text-yellow-300' : 'text-blue-600'}`}>
@@ -197,50 +254,75 @@ const WeatherResults = ({ data, isNightMode }) => {
       )}
 
       {/* 3. CLIMATE CHANGE ANALYSIS */}
-        <div className={`border rounded-xl p-6 ${
+      {climateTrendDetails && (
+        <div className={`border-2 rounded-xl p-6 ${
           isNightMode 
             ? 'bg-slate-800 border-slate-700' 
-            : 'bg-white/90 border-white/30'
+            : 'bg-white/90 border-gray-300'
         }`}>
-          <h2 className={`text-2xl font-bold text-center mb-4 ${isNightMode ? 'text-white' : 'text-gray-800'}`}>
+          <h2 className={`text-2xl font-bold text-center mb-4 ${isNightMode ? 'text-slate-300' : 'text-gray-800'}`}>
             🌍 Climate Change Impact
           </h2>
           <p className={`text-center mb-6 ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
-          Long-term climate trends detected over the past 20 years
-        </p>
-        
-        <div className={`p-4 rounded-lg border ${
-          isNightMode 
-            ? 'bg-slate-900/50 border-slate-700' 
-            : 'bg-gray-50 border-gray-200'
-        }`}>
-          <p className={`${isNightMode ? 'text-slate-300' : 'text-gray-600'}`}>
-            {climateTrend}
-              </p>
+            Long-term climate trends detected over the past 20 years
+          </p>
+
+          {/* Visual Risk Indicator */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className={`text-sm font-medium ${isNightMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                Climate Trend Level
+              </span>
+              <span className={`text-sm font-bold ${
+                climateTrendDetails.trend_status === 'SIGNIFICANT_WARMING' ? 'text-red-500' :
+                climateTrendDetails.trend_status === 'WARMING_TREND' ? 'text-orange-500' :
+                climateTrendDetails.trend_status === 'COOLING_TREND' ? 'text-blue-500' :
+                'text-green-500'
+              }`}>
+                {climateTrendDetails.trend_status?.replace(/_/g, ' ')}
+              </span>
             </div>
 
-        {climateTrendDetails && (
-          <div className="mt-4">
-            <p className={`text-sm font-bold mb-2 ${isNightMode ? 'text-slate-300' : 'text-gray-700'}`}>
-              Scientific Analysis:
-            </p>
-            <div className={`p-4 rounded-lg ${isNightMode ? 'bg-slate-700/30' : 'bg-gray-100'}`}>
-              <p className={`text-sm ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                <strong>Status:</strong> {climateTrendDetails.trend_status}
-              </p>
-              <p className={`text-sm ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                <strong>Temperature Change:</strong> {climateTrendDetails.difference?.toFixed(2)}°C
-              </p>
-              <p className={`text-sm ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                <strong>Methodology:</strong> {climateTrendDetails.methodology || 'IPCC/WMO standard analysis'}
-                </p>
-                <p className={`text-sm ${isNightMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                <strong>Data Period:</strong> {climateTrendDetails.data_period || '20 years'}
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  climateTrendDetails.trend_status === 'SIGNIFICANT_WARMING' ? 'bg-gradient-to-r from-red-600 to-red-500' :
+                  climateTrendDetails.trend_status === 'WARMING_TREND' ? 'bg-gradient-to-r from-orange-500 to-orange-400' :
+                  climateTrendDetails.trend_status === 'COOLING_TREND' ? 'bg-gradient-to-r from-blue-500 to-blue-400' :
+                  'bg-gradient-to-r from-green-500 to-green-400'
+                }`}
+                style={{ 
+                  width: `${Math.min(100, Math.abs(climateTrendDetails.difference || 0) * 50)}%` 
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Detailed Data Grid */}
+          <div className={`grid grid-cols-2 gap-3 ${isNightMode ? 'text-slate-300' : 'text-gray-700'}`}>
+            <div className={`p-3 rounded-lg border-2 ${isNightMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-100 border-gray-300'}`}>
+              <div className="text-xs font-semibold mb-1 opacity-70">Temperature Change</div>
+              <div className="text-xl font-bold">
+                {climateTrendDetails.difference >= 0 ? '+' : ''}{climateTrendDetails.difference?.toFixed(2)}°C
+              </div>
+              </div>
+            
+            <div className={`p-3 rounded-lg border-2 ${isNightMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-100 border-gray-300'}`}>
+              <div className="text-xs font-semibold mb-1 opacity-70">Analysis Period</div>
+              <div className="text-xl font-bold">20 years</div>
+          </div>
+        </div>
+
+          {/* Comparison Info */}
+          <div className={`mt-4 p-3 rounded-lg border-2 ${isNightMode ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-300'}`}>
+            <p className={`text-xs text-center ${isNightMode ? 'text-slate-400' : 'text-blue-600'}`}>
+              📊 Comparing first 5 years ({climateTrendDetails.early_years?.[0]}–{climateTrendDetails.early_years?.[climateTrendDetails.early_years?.length - 1]}) 
+              vs last 5 years ({climateTrendDetails.recent_years?.[0]}–{climateTrendDetails.recent_years?.[climateTrendDetails.recent_years?.length - 1]})
               </p>
             </div>
           </div>
         )}
-      </div>
     </section>
   );
 };

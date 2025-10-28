@@ -79,8 +79,8 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       const oneYearFromNow = new Date();
       oneYearFromNow.setFullYear(today.getFullYear() + 1);
       
-      if (selectedDate < today) {
-        errors.push('Date cannot be in the past');
+      if (selectedDate <= today) {
+        errors.push('Date cannot be today or in the past');
       } else if (selectedDate > oneYearFromNow) {
         errors.push('Date cannot be more than one year in the future');
       }
@@ -155,12 +155,23 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
           <label className="block text-lg font-bold text-slate-300 mb-3">
             Step 1: Choose Location
           </label>
-          <MapSelector
-            onLocationSelect={handleMapLocationSelect}
-            isNightMode={isNightMode}
-            initialLat={lat}
-            initialLon={lon}
-          />
+          <div className="space-y-2">
+            <MapSelector
+              onLocationSelect={handleMapLocationSelect}
+              isNightMode={isNightMode}
+              initialLat={lat}
+              initialLon={lon}
+            />
+            
+            {/* INSTRUCCIONES: Guía de uso para el usuario */}
+            <div className={`text-xs rounded-lg p-3 ${
+              isNightMode 
+                ? 'text-slate-400 bg-slate-800/50 border border-slate-700' 
+                : 'text-gray-600 bg-gray-100/50 border border-gray-300'
+            }`}>
+              <strong className={isNightMode ? 'text-slate-300' : 'text-gray-800'}>🗺️ Instructions:</strong> Click anywhere on the map to select your location, or use "Use My Location" to automatically detect your current position.
+            </div>
+          </div>
         </div>
 
         {/* Step 2: Date */}
@@ -179,11 +190,12 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
           />
           
           {/* Informative note about date range */}
-          <div className="mt-2 text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-            <div className="flex items-center">
-              <span className="text-blue-400 mr-2">ℹ️</span>
-              <span><strong>Note:</strong> Predictions are available for up to 1 year in the future</span>
-            </div>
+          <div className={`mt-2 text-xs rounded-lg p-3 ${
+            isNightMode 
+              ? 'text-slate-400 bg-slate-800/50 border border-slate-700' 
+              : 'text-gray-600 bg-gray-100/50 border border-gray-300'
+          }`}>
+            <span><strong>ℹ️ Note:</strong> Predictions are available for up to 1 year in the future</span>
           </div>
         </div>
       </div>
@@ -230,7 +242,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
         
         {/* Visualización de errores de validación */}
         {validationErrors.length > 0 && (
-          <div className="mt-4 p-4 bg-red-900/20 border border-red-500 rounded-lg">
+          <div className="mt-4 p-4 bg-red-900/20 border-2 border-red-500 rounded-lg">
             <div className="flex items-center mb-2">
               <span className="text-red-400 text-lg mr-2">⚠️</span>
               <h3 className="text-red-400 font-bold text-sm">Validation errors:</h3>
