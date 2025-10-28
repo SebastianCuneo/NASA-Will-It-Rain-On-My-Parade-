@@ -749,28 +749,60 @@ def analyze_climate_change_trend(monthly_data: pd.DataFrame) -> Dict[str, Any]:
 # =============================================================================
 # Funciones auxiliares para el manejo de respuestas de Gemini AI
 
+def calculate_season_from_month(month: int, latitude: float = None) -> str:
+    """
+    Calculate season from month (1-12) based on hemisphere from coordinates.
+    Uses global climatological standard based on meteorological seasons.
+    
+    Args:
+        month: Month number (1-12)
+        latitude: Latitude coordinate to determine hemisphere (optional)
+        
+    Returns:
+        Season name (Summer, Autumn, Winter, Spring)
+    """
+    # If no latitude provided, assume Southern Hemisphere by default
+    is_northern_hemisphere = latitude is not None and latitude > 0
+    
+    if is_northern_hemisphere:
+        # Northern Hemisphere seasons
+        if month in [6, 7, 8]:
+            return "Summer"
+        elif month in [9, 10, 11]:
+            return "Autumn"
+        elif month in [12, 1, 2]:
+            return "Winter"
+        else:  # 3, 4, 5
+            return "Spring"
+    else:
+        # Southern Hemisphere seasons (default)
+        if month in [12, 1, 2]:
+            return "Summer"
+        elif month in [3, 4, 5]:
+            return "Autumn"
+        elif month in [6, 7, 8]:
+            return "Winter"
+        else:  # 9, 10, 11
+            return "Spring"
+
 def generate_plan_b_with_gemini(
     activity: str,
-    weather_condition: str,
-    risk_level: str,
+    adverse_condition: str,
+    risk_analysis: Dict[str, Any],
     location: str = "Montevideo, Uruguay",
-    season: str = "Summer",
-    temperature_risk: float = None,
-    precipitation_risk: float = None,
-    cold_risk: float = None
+    target_month: int = 1,
+    latitude: float = None
 ) -> Dict[str, Any]:
     """
-    Generate intelligent Plan B suggestions using Gemini AI with enhanced context
+    Generate intelligent Plan B suggestions using Gemini AI with context from risk_analysis.
     
     Args:
         activity: Type of activity (beach, picnic, running, etc.)
-        weather_condition: Weather condition causing the risk (cold, hot, rainy, etc.)
-        risk_level: Risk level (HIGH, MODERATE, LOW, MINIMAL)
+        adverse_condition: Weather condition causing the risk (cold, hot, rainy, etc.)
+        risk_analysis: Complete risk analysis result from calculate_weather_risk()
         location: Location name for context
-        season: Current season
-        temperature_risk: Temperature risk probability (0-100)
-        precipitation_risk: Precipitation risk probability (0-100)
-        cold_risk: Cold weather risk probability (0-100)
+        target_month: Target month for the event (1-12)
+        latitude: Latitude coordinate to calculate season correctly by hemisphere
         
     Returns:
         Dict with Plan B suggestions
@@ -783,6 +815,15 @@ def generate_plan_b_with_gemini(
         }
     
     try:
+        # Calculate season from target month based on hemisphere
+        season = calculate_season_from_month(target_month, latitude)
+        
+        # Extract data from risk_analysis
+        risk_level = risk_analysis.get('risk_level', 'MODERATE')
+        risk_probability = risk_analysis.get('probability', 0.0)
+        risk_threshold = risk_analysis.get('risk_threshold', 0.0)
+        risk_message = risk_analysis.get('status_message', '')
+        
         # Configure Gemini API with better error handling
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
@@ -796,22 +837,21 @@ def generate_plan_b_with_gemini(
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Enhanced context-aware prompt with risk probabilities
-        risk_context = ""
-        if temperature_risk is not None:
-            risk_context += f"- Temperature Risk: {temperature_risk:.1f}%\n"
-        if precipitation_risk is not None:
-            risk_context += f"- Precipitation Risk: {precipitation_risk:.1f}%\n"
-        if cold_risk is not None:
-            risk_context += f"- Cold Weather Risk: {cold_risk:.1f}%\n"
+        risk_context = f"- Risk Level: {risk_level}\n"
+        risk_context += f"- Risk Probability: {risk_probability:.1f}%\n"
+        if 'threshold' in risk_analysis:
+            risk_context += f"- Risk Threshold: {risk_threshold:.1f}\n"
+        risk_context += f"- Risk Message: {risk_message}\n"
         
         # Create enhanced prompt with better structure
         prompt = f"""You are an expert weather planning assistant for {location}. Generate intelligent Plan B alternatives for outdoor activities when weather conditions are unfavorable.
 
 CONTEXT:
 - Original Activity: {activity}
-- Primary Weather Risk: {weather_condition} ({risk_level} risk level)
+- Adverse Weather Condition: {adverse_condition}
 - Location: {location}
 - Season: {season}
+- Target Month: {target_month}
 - Current Date: {datetime.now().strftime('%B %d, %Y')}
 {risk_context}
 
@@ -912,10 +952,11 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
                 "generated_at": datetime.now().isoformat(),
                 "context": {
                     "activity": activity,
-                    "weather_condition": weather_condition,
+                    "adverse_condition": adverse_condition,
                     "risk_level": risk_level,
                     "location": location,
-                    "season": season
+                    "season": season,
+                    "target_month": target_month
                 }
             }
                 
@@ -932,13 +973,14 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
 
 def generate_fallback_plan_b(
     activity: str,
-    weather_condition: str,
+    adverse_condition: str,
     risk_level: str,
     location: str = "Montevideo, Uruguay",
-    season: str = "Summer"
+    target_month: int = 1,
+    latitude: float = None
 ) -> Dict[str, Any]:
     """
-    Generate fallback Plan B suggestions when Gemini is not available
+    Generate fallback Plan B suggestions when Gemini is not available.
     
     This function is activated automatically when:
     - Gemini AI API is unavailable
@@ -946,9 +988,23 @@ def generate_fallback_plan_b(
     - Any error occurs during Gemini processing
     
     Logs are automatically generated to track when fallback mode is used.
+    
+    Args:
+        activity: Type of activity
+        adverse_condition: Weather condition causing the risk
+        risk_level: Risk level (HIGH, MODERATE, LOW, MINIMAL)
+        location: Location name for context
+        target_month: Target month for the event (1-12)
+        latitude: Latitude coordinate to calculate season
+        
+    Returns:
+        Dict with Plan B alternatives
     """
-    logger.warning("📦 Using fallback Plan B system (Gemini AI unavailable)")
-    logger.info(f"Activity: {activity}, Weather: {weather_condition}, Risk: {risk_level}")
+    # Calculate season from coordinates
+    season = calculate_season_from_month(target_month, latitude)
+    
+    logger.warning("[FALLBACK MODE] Using predefined alternatives (Gemini AI unavailable)")
+    logger.info(f"Activity: {activity}, Condition: {adverse_condition}, Risk: {risk_level}, Season: {season}")
     fallback_alternatives = {
         "beach": {
             "cold": [
@@ -1048,7 +1104,7 @@ def generate_fallback_plan_b(
     }
     
     # Get alternatives for the specific activity and condition
-    alternatives = fallback_alternatives.get(activity, {}).get(weather_condition, [])
+    alternatives = fallback_alternatives.get(activity, {}).get(adverse_condition, [])
     
     # If no specific alternatives, provide general ones
     if not alternatives:
@@ -1069,7 +1125,7 @@ def generate_fallback_plan_b(
             }
         ]
     
-    logger.info(f"✅ Fallback Plan B generated {len(alternatives)} alternatives")
+    logger.info(f"Fallback Plan B generated {len(alternatives)} alternatives")
     
     return {
         "success": True,

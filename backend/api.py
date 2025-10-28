@@ -60,7 +60,8 @@ try:
         calculate_weather_risk,
         generate_plan_b_with_gemini,
         generate_fallback_plan_b,
-        get_climate_trend_data
+        analyze_climate_change_trend,
+        filter_data_by_month
     )
 except ImportError as e:
     print(f"Error importing logic module: {e}")
@@ -132,7 +133,6 @@ async def get_risk_analysis(request: RiskRequest):
     - risk_analysis: Análisis de riesgo P90 (probabilidad, umbral, nivel)
     - plan_b: Alternativas generadas por IA o sistema fallback
     - climate_trend: Análisis de tendencias climáticas (IPCC/WMO)
-    - plot_data: Datos para visualizaciones
     """
     print(f'📥 Solicitud recibida: Lat={request.latitude}, Lon={request.longitude}, '
           f'Fecha={request.event_date}, Condición={request.adverse_condition}')
@@ -184,9 +184,9 @@ async def get_risk_analysis(request: RiskRequest):
                 # Simular temperatura máxima con variación por mes
                 temps.append(20 + month * 1.5 + (year - start_year) * 0.1)
                 precip.append(5.0 + (month - 6) * 0.5)
-            
-            historical_data = pd.DataFrame({
-                'Year': years,
+        
+        historical_data = pd.DataFrame({
+            'Year': years,
             'Month': months,
             'Max_Temperature_C': temps,
             'Precipitation_mm': precip
@@ -219,8 +219,17 @@ async def get_risk_analysis(request: RiskRequest):
         # PASO 3: ANÁLISIS DE TENDENCIAS CLIMÁTICAS
         # ========================================
         print("📈 Calculando tendencias climáticas (IPCC/WMO)...")
-        climate_data = get_climate_trend_data(historical_data)
-        print(f"✅ Tendencias completadas: {climate_data.get('climate_trend', 'N/A')[:50]}...")
+        
+        # Filtrar datos históricos para el mes objetivo
+        monthly_data_for_trend = filter_data_by_month(historical_data, target_month)
+        
+        # Analizar tendencias climáticas en el mes objetivo
+        climate_trend_result = analyze_climate_change_trend(monthly_data_for_trend)
+        
+        # Formatear mensaje de tendencia para el frontend
+        climate_message = f"Climate Trend: {climate_trend_result.get('trend_status', 'UNKNOWN')} - {climate_trend_result.get('message', 'No trend data')}"
+        
+        print(f"✅ Tendencias completadas: {climate_trend_result.get('trend_status', 'N/A')}")
         
         # ========================================
         # PASO 4: GENERACIÓN DE PLAN B
@@ -231,13 +240,11 @@ async def get_risk_analysis(request: RiskRequest):
         try:
             plan_b = generate_plan_b_with_gemini(
                 activity=request.activity,
-                weather_condition=request.adverse_condition.lower(),
-                risk_level=risk_analysis.get('risk_level', 'MODERATE'),
+                adverse_condition=request.adverse_condition.lower(),
+                risk_analysis=risk_analysis,
                 location=f"{request.latitude}, {request.longitude}",
-                season="Summer",  # TODO: Calcular estación automáticamente
-                temperature_risk=risk_analysis.get('probability', 0.0),
-                precipitation_risk=0.0,
-                cold_risk=0.0
+                target_month=target_month,
+                latitude=request.latitude
             )
         except Exception as gemini_error:
             logger.warning(f"⚠️ Gemini AI falló, activando sistema fallback: {gemini_error}")
@@ -245,10 +252,11 @@ async def get_risk_analysis(request: RiskRequest):
             
             plan_b = generate_fallback_plan_b(
                 activity=request.activity,
-                weather_condition=request.adverse_condition.lower(),
+                adverse_condition=request.adverse_condition.lower(),
                 risk_level=risk_analysis.get('risk_level', 'MODERATE'),
                 location=f"{request.latitude}, {request.longitude}",
-                season="Summer"
+                target_month=target_month,
+                latitude=request.latitude
             )
             logger.info("✅ Sistema fallback activado correctamente")
         
@@ -261,8 +269,8 @@ async def get_risk_analysis(request: RiskRequest):
             "success": True,
             "risk_analysis": risk_analysis,
             "plan_b": plan_b,
-            "climate_trend": climate_data.get('climate_trend', 'No climate trend data available'),
-            "plot_data": climate_data.get('plot_data', [])
+            "climate_trend": climate_message,
+            "climate_trend_details": climate_trend_result
         }
         
     except Exception as e:

@@ -39,12 +39,23 @@ const useWeatherAPI = () => {
     setResults(null);
     
     try {
+      // Mapear IDs de actividad del frontend a nombres del backend
+      const activityMap = {
+        'surf': 'beach',
+        'beach': 'beach',
+        'run': 'running',
+        'hike': 'hiking',
+        'sailing': 'sailing',
+        'picnic': 'picnic'
+      };
+      
       // Crear payload para la llamada API con datos del formulario
       const apiPayload = {
         latitude: data.latitude,  // Usar coordenadas del formulario
         longitude: data.longitude,
         event_date: data.event_date,  // Enviar fecha como string
-        adverse_condition: data.weatherConditions[0] || 'Very Hot'  // Enviar primera condición seleccionada
+        adverse_condition: data.weatherConditions[0] || 'Very Hot',  // Enviar primera condición seleccionada
+        activity: activityMap[data.activity] || 'general'  // Mapear actividad y usar 'general' por defecto
       };
     
       // INFO: Log del payload antes del envío al backend
