@@ -85,13 +85,13 @@ const useWeatherAPI = () => {
         responseSize: JSON.stringify(apiData).length
       });
       
-      // Extraer datos completos de la respuesta API del endpoint /api/risk-working
+      // Extraer datos completos de la respuesta API del endpoint /api/risk
       const riskAnalysis = apiData.risk_analysis;
       const climateTrend = apiData.climate_trend;
-      const plotData = apiData.plot_data || [];
+      const planB = apiData.plan_b;
       
-      // Usar datos reales del backend en lugar de datos mock
-      const temperatureRisk = {
+      // Usar datos reales del backend (risk_analysis ya incluye toda la información necesaria)
+      const riskData = {
         probability: riskAnalysis?.probability || 0,
         risk_level: riskAnalysis?.risk_level || "UNKNOWN",
         status_message: riskAnalysis?.status_message || "No data available",
@@ -99,21 +99,13 @@ const useWeatherAPI = () => {
         total_observations: riskAnalysis?.total_observations || 0
       };
       
-      // Para precipitación y frío, usar los mismos datos por ahora (el backend actual solo calcula temperatura)
-      const precipitationRisk = { ...temperatureRisk };
-      const coldRisk = { ...temperatureRisk };
-      
       // Combinar datos de API con datos del formulario para distribución a componentes
       const combinedData = {
         ...data,
         apiResults: apiData,
-        temperature_risk: temperatureRisk,
-        precipitation_risk: precipitationRisk,
-        cold_risk: coldRisk,
-        
-        // Datos de análisis climático
-        plot_data: plotData,
-        climate_trend: climateTrend
+        risk_data: riskData,
+        climate_trend: climateTrend,
+        plan_b: planB
       };
 
       setResults(combinedData);
@@ -126,11 +118,11 @@ const useWeatherAPI = () => {
       console.error('🌐 API Error:', { 
         message: error.message, 
         status: error.status,
-        endpoint: 'risk-working' 
+        endpoint: 'risk' 
       });
-      showTemporaryMessage('Error connecting to weather service. Using offline data.', 'warning');
-      // Fallback a datos mock en caso de error
-      setResults(data);
+      showTemporaryMessage('Error connecting to weather service. Please try again.', 'warning');
+      // No establecer resultados en caso de error para mostrar mensaje de error
+      setResults(null);
     } finally {
       // Siempre desactivar estado de carga, independientemente del resultado
       setLoading(false);

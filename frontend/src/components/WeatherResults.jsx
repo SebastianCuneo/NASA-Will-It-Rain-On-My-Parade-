@@ -13,12 +13,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 const WeatherResults = ({ data, isNightMode }) => {
-  // Plan B comes from backend via apiResults
-  const planBData = apiResults?.plan_b?.alternatives || null;
-  const planBLoading = false; // Backend handles loading
-  const planBError = apiResults?.plan_b?.success ? null : 'Error generating Plan B';
-  const aiModel = apiResults?.plan_b?.ai_model || 'Backend System';
-
   // Datos mock para condiciones meteorológicas - usado como fallback cuando no hay datos de API
   const mockData = {
     wet: { text: 'rainy', percentage: 18.2, pastPercentage: 11.5, advice: "don't forget an umbrella." },
@@ -43,6 +37,12 @@ const WeatherResults = ({ data, isNightMode }) => {
 
   // Extracción de datos del prop - contiene tanto datos de API como información del formulario
   const { weatherConditions, activity, location, date, apiResults, temperature_risk, precipitation_risk, cold_risk } = data;
+  
+  // Plan B comes from backend via apiResults
+  const planBData = apiResults?.plan_b?.alternatives || null;
+  const planBLoading = false; // Backend handles loading
+  const planBError = apiResults?.plan_b?.success ? null : 'Error generating Plan B';
+  const aiModel = apiResults?.plan_b?.ai_model || 'Backend System';
   
   // Variables para acumular cálculos de riesgo meteorológico
   let totalPercentage = 0, totalPastPercentage = 0, emojis = '';
@@ -212,73 +212,8 @@ const WeatherResults = ({ data, isNightMode }) => {
     // Dependencias reflejan las entradas usadas dentro de checkActivityCompatibility
   }, [weatherConditions, activity, apiResults, temperature_risk, precipitation_risk, cold_risk]);
 
-  // GENERACIÓN DE PLAN B: Solo cuando la actividad no es compatible
-  // Sistema híbrido: Gemini AI + Fallback local
-  const planBInitializedRef = useRef(false);
-  useEffect(() => {
-    const needsAlternatives = activityCompatibility && !activityCompatibility.isGood;
-    if (!needsAlternatives) {
-      // Clear previous Plan B if conditions are good
-      planBInitializedRef.current = false;
-      setPlanBLoading(false);
-      setPlanBData(null);
-      setPlanBError(null);
-      return;
-    }
-
-    // If already initialized with current scenario, skip
-    if (planBInitializedRef.current && (planBData && planBData.length > 0)) return;
-
-    // Generar Plan B con Gemini AI + fallback local
-    generatePlanBWithFallback(weatherConditions, activity, location);
-  }, [activityCompatibility?.isGood, weatherConditions, activity, location, planBData]);
-
-  // Función híbrida: Gemini AI + Fallback local
-  const generatePlanBWithFallback = async (conditions, activity, location) => {
-    setPlanBLoading(true);
-    setPlanBError(null);
-    setAiModel('Gemini 2.0 Flash (Frontend)');
-
-    try {
-      // Intentar con Gemini AI primero
-      console.log('🤖 Attempting Gemini AI generation...');
-      const geminiResult = await generatePlanB(conditions, activity, location);
-      console.log('🤖 Gemini result:', geminiResult);
-      
-      if (geminiResult.success && geminiResult.alternatives.length > 0) {
-        console.log('✅ Gemini AI successful, using AI-generated alternatives');
-        setPlanBData(geminiResult.alternatives);
-        setAiModel(geminiResult.ai_model);
-        setPlanBError(null);
-        } else {
-        // Fallback a respuestas harcodeadas
-        console.log('❌ Gemini failed, using local fallback:', geminiResult.error);
-        const fallbackOptions = generateAdvancedPlanB(conditions, activity, location);
-        setPlanBData(fallbackOptions);
-        setAiModel('Local Intelligence System (Fallback)');
-        setPlanBError('Gemini AI unavailable, using local alternatives');
-      }
-    } catch (error) {
-      // Error en Gemini, usar fallback
-      console.error('Gemini AI error:', error);
-      const fallbackOptions = generateAdvancedPlanB(conditions, activity, location);
-      setPlanBData(fallbackOptions);
-      setAiModel('Local Intelligence System (Fallback)');
-      setPlanBError('Gemini AI error, using local alternatives');
-    } finally {
-      setPlanBLoading(false);
-      planBInitializedRef.current = true;
-    }
-  };
-
-  // Función para regenerar Plan B con Gemini + fallback
-  const regeneratePlanB = () => {
-    if (!activityCompatibility || activityCompatibility.isGood) return;
-    
-    setPlanBData(null);
-    planBInitializedRef.current = false;
-    generatePlanBWithFallback(weatherConditions, activity, location);
-  };
+  // Plan B comes from backend - no generation needed in frontend
+  // useEffect removed - Plan B is provided by backend via apiResults.plan_b
 
   // Generación avanzada de Plan B completamente local
   const generateAdvancedPlanB = (conditions, originalActivity, location) => {
@@ -532,9 +467,7 @@ const WeatherResults = ({ data, isNightMode }) => {
                     isNightMode ? 'bg-slate-900' : 'bg-gray-100'
                   }`}>
                     <p className="text-sm font-bold text-red-400 mb-3">Plan B Active! ✨</p>
-                    {planBLoading ? (
-                      <p className={isNightMode ? 'text-slate-400' : 'text-gray-500'}>Generating alternatives...</p>
-                    ) : planBData ? (
+                    {planBData ? (
                       <>
                         <p className={`text-sm font-bold mb-3 ${isNightMode ? 'text-slate-300' : 'text-gray-700'}`}>
                           Alternative Activities:
@@ -619,41 +552,7 @@ const WeatherResults = ({ data, isNightMode }) => {
                           </div>
                         )}
                         
-                        {/* Regenerate Button */}
-                        <div className="mt-4 pt-3 border-t border-slate-600">
-                          <button
-                            onClick={regeneratePlanB}
-                            disabled={planBLoading}
-                            className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
-                              planBLoading
-                                ? 'bg-slate-600 text-slate-400 cursor-not-allowed scale-100'
-                                : isNightMode
-                                ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-blue-500/25'
-                                : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
-                            }`}
-                          >
-                            {planBLoading ? (
-                              <>
-                                <div className="flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-3"></div>
-                                  <span>Generating new alternatives...</span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center justify-center">
-                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                  </svg>
-                                  <span>Generate New Alternatives</span>
-                                </div>
-                              </>
-                            )}
-                          </button>
-                          <p className={`text-xs mt-2 text-center ${isNightMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                            Don't like these suggestions? Get new ones!
-                          </p>
-                        </div>
+                        {/* Plan B comes from backend - no regenerate button needed */}
                       </>
                     ) : null}
                   </div>

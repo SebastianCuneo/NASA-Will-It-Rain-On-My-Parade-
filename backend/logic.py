@@ -808,11 +808,8 @@ def generate_plan_b_with_gemini(
         Dict with Plan B suggestions
     """
     if not GEMINI_AVAILABLE:
-        return {
-            "success": False,
-            "message": "Gemini AI not available. Please install google-generativeai package.",
-            "alternatives": []
-        }
+        # Raise exception to trigger fallback in api.py
+        raise ValueError("Gemini AI not available. Fallback will be used.")
     
     try:
         # Calculate season from target month based on hemisphere
@@ -827,11 +824,8 @@ def generate_plan_b_with_gemini(
         # Configure Gemini API with better error handling
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            return {
-                "success": False,
-                "message": "Gemini API key not configured. Please set GEMINI_API_KEY environment variable.",
-                "alternatives": []
-            }
+            # Raise exception to trigger fallback in api.py
+            raise ValueError("Gemini API key not configured. Fallback will be used.")
         
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
@@ -1102,27 +1096,97 @@ def generate_fallback_plan_b(
         }
     }
     
-    # Get alternatives for the specific activity and condition
-    alternatives = fallback_alternatives.get(activity, {}).get(adverse_condition, [])
+    # Get alternatives for the specific condition (activity-independent)
+    alternatives = []
     
-    # If no specific alternatives, provide general ones
+    # For each activity type, get relevant alternatives for the adverse condition
+    for activity_type, activity_data in fallback_alternatives.items():
+        if adverse_condition in activity_data:
+            alternatives.extend(activity_data[adverse_condition])
+    
+    # If no alternatives found, provide general ones based on condition
     if not alternatives:
-        alternatives = [
+        general_alternatives = {
+            "very hot": [
+                {
+                    "title": "Museo Torres García",
+                    "description": "Explore Uruguayan art in an air-conditioned museum",
+                    "type": "indoor",
+                    "reason": "Cultural experience in cool environment",
+                    "tips": "Check current exhibitions and guided tour schedules",
+                    "location": "Sarandí 683, Montevideo",
+                    "duration": "2-3 hours",
+                    "cost": "Low"
+                },
+                {
+                    "title": "Shopping Center",
+                    "description": "Visit Punta Carretas Shopping for shopping and dining",
+                    "type": "indoor",
+                    "reason": "Climate-controlled environment perfect for hot days",
+                    "tips": "Check for special events or sales, bring comfortable shoes",
+                    "location": "Punta Carretas, Montevideo",
+                    "duration": "3-4 hours",
+                    "cost": "Medium"
+                }
+            ],
+            "very cold": [
+                {
+                    "title": "Termas de Daymán",
+                    "description": "Relax in natural hot springs",
+                    "type": "outdoor",
+                    "reason": "Hot water therapy is ideal for cold weather",
+                    "tips": "Bring towels, wear flip-flops, check pool temperatures",
+                    "location": "Salto, Uruguay",
+                    "duration": "Half day",
+                    "cost": "Medium"
+                },
+                {
+                    "title": "Mercado del Puerto",
+                    "description": "Visit food market and try Uruguayan barbecue",
+                    "type": "indoor",
+                    "reason": "Food experience in warm environment",
+                    "tips": "Try traditional parrillada and local wines",
+                    "location": "Mercado del Puerto, Montevideo",
+                    "duration": "2-3 hours",
+                    "cost": "Medium"
+                }
+            ],
+            "very rainy": [
+                {
+                    "title": "Cinema Theater",
+                    "description": "Watch latest movies in air-conditioned theaters",
+                    "type": "indoor",
+                    "reason": "Perfect rainy day entertainment",
+                    "tips": "Book tickets in advance for popular shows",
+                    "location": "Various locations, Montevideo",
+                    "duration": "2-3 hours",
+                    "cost": "Low"
+                },
+                {
+                    "title": "Teatro Solís",
+                    "description": "Attend a performance in Uruguay's historic theater",
+                    "type": "indoor",
+                    "reason": "Cultural entertainment in beautiful warm venue",
+                    "tips": "Book tickets in advance, dress code varies",
+                    "location": "Buenos Aires, Montevideo",
+                    "duration": "2-4 hours",
+                    "cost": "Medium"
+                }
+            ]
+        }
+        
+        alternatives = general_alternatives.get(adverse_condition, [
             {
                 "title": "Museo Nacional de Artes Visuales",
                 "description": "Explore Uruguayan art and culture",
                 "type": "indoor",
                 "reason": "Cultural experience regardless of weather",
-                "tips": "Check current exhibitions and opening hours"
-            },
-            {
-                "title": "Teatro Solís",
-                "description": "Attend a performance or take a guided tour",
-                "type": "indoor",
-                "reason": "Cultural entertainment in beautiful venue",
-                "tips": "Book tickets in advance for performances"
+                "tips": "Check current exhibitions and opening hours",
+                "location": "Montevideo, Uruguay",
+                "duration": "2-3 hours",
+                "cost": "Low"
             }
-        ]
+        ])
     
     logger.info(f"Fallback Plan B generated {len(alternatives)} alternatives")
     

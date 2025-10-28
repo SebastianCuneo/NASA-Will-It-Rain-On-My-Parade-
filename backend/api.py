@@ -26,6 +26,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import logging
+import os
+from pathlib import Path
+
+# Load environment variables from .env file (in project root)
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Configuración de logging para la API
 logger = logging.getLogger(__name__)
@@ -235,12 +242,33 @@ async def get_risk_analysis(request: RiskRequest):
         # ========================================
         logger.info("Consolidating final response with all analyses")
         
+        # Convert all numpy types to native Python types for JSON serialization
+        def convert_to_python_types(obj):
+            """Convert numpy types to native Python types for JSON serialization"""
+            if isinstance(obj, (int, float, bool, str, type(None))):
+                return obj
+            elif isinstance(obj, dict):
+                return {k: convert_to_python_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_python_types(item) for item in obj]
+            elif hasattr(obj, 'item'):  # numpy scalar types
+                return obj.item()
+            elif hasattr(obj, '__dict__'):
+                return convert_to_python_types(obj.__dict__)
+            else:
+                return str(obj)
+        
+        # Convert risk_analysis to native Python types
+        risk_analysis_converted = convert_to_python_types(risk_analysis)
+        plan_b_converted = convert_to_python_types(plan_b)
+        climate_trend_details_converted = convert_to_python_types(climate_trend_result)
+        
         response = {
             "success": True,
-            "risk_analysis": risk_analysis,
-            "plan_b": plan_b,
+            "risk_analysis": risk_analysis_converted,
+            "plan_b": plan_b_converted,
             "climate_trend": climate_message,
-            "climate_trend_details": climate_trend_result
+            "climate_trend_details": climate_trend_details_converted
         }
         
         logger.info("Endpoint /api/risk completed successfully")

@@ -7,6 +7,7 @@
 - Python 3.10+
 - Node.js 16+
 - npm or yarn
+- (Optional) Gemini AI API key from https://makersuite.google.com/app/apikey
 
 ### ⚡ Quick Start (5 Steps)
 
@@ -27,6 +28,20 @@ cd frontend
 npm install
 cd ..
 ```
+
+#### 3.5. Configure Gemini AI (Optional)
+For AI-powered Plan B suggestions:
+
+```bash
+# Copy the template
+cp config_example.env .env
+
+# Edit .env and add your Gemini API key
+# Get your API key from: https://makersuite.google.com/app/apikey
+# GEMINI_API_KEY=your_api_key_here
+```
+
+**Note:** Without API key, the system uses fallback alternatives (predefined activities).
 
 #### 4. Start Backend Server
 ```bash
@@ -98,107 +113,23 @@ npm start
 - **API Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
 
-### 🐛 Troubleshooting
+### 🔑 Environment Variables
 
-**Common Issues:**
+**Important Security Note:**
+- The `.env` file contains your personal API keys
+- It's already in `.gitignore` (not tracked by Git)
+- **Never commit `.env` to GitHub**
+- Each developer should create their own `.env` with their own API key
 
-1. **Port already in use:**
-   ```bash
-   # Kill process on port 3000
-   npx kill-port 3000
-   
-   # Kill process on port 8000
-   npx kill-port 8000
-   ```
+**For Your Team:**
+1. Clone the repository
+2. Copy `config_example.env` to `.env`
+3. Add your own Gemini API key from https://makersuite.google.com/app/apikey
+4. Start the backend
 
-2. **Python dependencies not found:**
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt --force-reinstall
-   ```
+**What's Public on GitHub:**
+- `config_example.env` (template without real API key)
+- All code and documentation
+- **NOT your personal API keys**
 
-3. **Node modules issues:**
-   ```bash
-   cd frontend
-   rm -rf node_modules package-lock.json
-   npm install
-   ```
 
-4. **API connection issues:**
-   - Ensure backend is running on port 8000
-   - Check that both terminals are running
-   - Verify proxy settings in `frontend/package.json`
-
-### 📊 Testing the Setup
-
-**Test Backend API:**
-```bash
-curl http://localhost:8000/health
-# Expected: {"status": "healthy", "service": "NASA Weather Risk Navigator API"}
-```
-
-**Test Frontend:**
-- Open http://localhost:3000
-- Fill out the form
-- Submit and verify results appear
-
-### 🏗️ Modern Architecture
-
-```
-React Frontend (Port 3000) ←→ FastAPI Backend (Port 8000) ←→ Mock Data (CSV)
-         ↓                           ↓
-    User Interface              Risk Calculation
-    Form Management             API Endpoints
-    Results Display             Data Processing
-    Responsive Design           Error Handling
-    Dark/Light Mode            Mock Data Validation
-    Plan B Suggestions         Scientific Methodology
-```
-
-### 📊 Data Architecture
-- **Mock Data**: 5 years of simulated weather data (2020-2024)
-- **Variables**: Temperature and precipitation for Montevideo region
-- **Methodology**: 90th percentile risk assessment
-- **Purpose**: MVP demonstration with scientifically valid approach
-
-### 🎨 Advanced Design Features
-
-- **NASA Color Scheme**: Blue (#0B3D91), Red (#FC3D21), Green (#34D399)
-- **Smooth Animations**: Fade-in effects, cloud drift, star movement
-- **Glassmorphism**: Modern backdrop blur with transparency
-- **Responsive Breakpoints**: Mobile-first with desktop enhancements
-- **Dark/Light Theme**: Automatic switching based on time of day
-
-### 📊 Enhanced Data Flow
-
-1. **User Input**: Location, date, weather conditions, activity selection
-2. **Form Validation**: Real-time validation with error messages
-3. **API Request**: POST to `/api/risk` with user data
-4. **Risk Calculation**: Temperature and precipitation analysis
-5. **Activity Analysis**: Compatibility checking with Plan B suggestions
-6. **Results Display**: Comprehensive risk assessment with visualizations
-
-### 🌟 Key Features
-
-- **Multi-step Form**: Intuitive 4-step process (Location → Date → Conditions → Activity)
-- **Activity Compatibility**: Smart analysis with automatic Plan B suggestions
-- **Historical Context**: Past vs. present risk comparison showing climate change
-- **Visual Risk Indicators**: Color-coded risk levels (HIGH/MODERATE/LOW/MINIMAL)
-- **Plan B Intelligence**: AI-powered alternative activity suggestions
-- **Responsive Design**: Perfect on all devices with desktop enhancements
-- **Theme Persistence**: Remembers user's theme preference
-- **Mock Data Validation**: Proven methodology ready for real NASA datasets
-- **Educational Impact**: Climate science made accessible and engaging
-
-### 🚀 Ready for Phase 2!
-
-This modern architecture is designed for easy extension:
-- **Modular React Components**: Reusable and maintainable
-- **RESTful API Design**: Scalable backend architecture
-- **Responsive UI Framework**: Ready for any screen size
-- **Real-time Data Integration**: Prepared for NASA API connections
-- **Advanced Analytics**: Foundation for ML and AI integration
-
----
-
-**Built with ❤️ for NASA Space Apps Challenge 2024**
