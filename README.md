@@ -270,13 +270,11 @@ The system automatically uses NASA POWER API for global locations. Fallback data
 - **Economic Extensions**: Tourism demand forecasting
 
 ## 🏆 Team & Credits
-
+**Team ucuwaeather**
 Developed for **NASA Space Apps Challenge Post-Hackathon** by:
 - Sebastian Cuneo
 - Candela Mangino
 - Avril Viega
-(Team ucuweather)
-
 
 ## 📄 License
 
