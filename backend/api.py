@@ -43,7 +43,6 @@ try:
         fetch_nasa_power_data,
         calculate_weather_risk,
         generate_plan_b_with_gemini,
-        generate_fallback_plan_b,
         analyze_climate_change_trend,
         filter_data_by_month
     )
@@ -210,8 +209,10 @@ async def get_risk_analysis(request: RiskRequest):
         # ========================================
         logger.info("Starting Plan B generation with Gemini AI")
         
-        # Intentar con Gemini AI, si falla usar fallback
+        # Intentar con Gemini AI
         # Gemini genera actividades compatibles con el clima y ubicación
+        plan_b = {"success": False, "alternatives": [], "message": "Plan B generation unavailable"}
+        
         try:
             plan_b = generate_plan_b_with_gemini(
                 adverse_condition=request.adverse_condition,  # Direct: cold, hot, wet
@@ -223,17 +224,7 @@ async def get_risk_analysis(request: RiskRequest):
             logger.info(f"Gemini AI successful: Generated {len(plan_b.get('alternatives', []))} alternatives")
             
         except Exception as gemini_error:
-            logger.warning(f"Gemini AI falló, activando sistema fallback: {gemini_error}")
-
-            # Sistema fallback: usa alternativas predefinidas sin IA
-            plan_b = generate_fallback_plan_b(
-                adverse_condition=request.adverse_condition,  # Direct: cold, hot, wet
-                risk_level=risk_analysis.get('risk_level', 'MODERATE'),
-                location=f"{request.latitude}, {request.longitude}",
-                target_month=target_month,
-                latitude=request.latitude
-            )
-            logger.info(f"Sistema fallback activado: Generated {len(plan_b.get('alternatives', []))} alternatives")
+            logger.warning(f"Gemini AI unavailable: {gemini_error}")
                 
         # ========================================
         # PASO 5: RESPUESTA CONSOLIDADA
