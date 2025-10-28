@@ -166,11 +166,6 @@ const MapSelector = ({ onLocationSelect, isNightMode, initialLat = -34.90, initi
           <MapClickHandler onLocationSelect={handleLocationSelect} />
         </MapContainer>
       </div>
-
-      {/* INSTRUCCIONES: Guía de uso para el usuario */}
-      <div className="text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-        <strong className="text-slate-300">🗺️ Instructions:</strong> Click anywhere on the map to select your location, or use "Use My Location" to automatically detect your current position.
-      </div>
     </div>
   );
 };

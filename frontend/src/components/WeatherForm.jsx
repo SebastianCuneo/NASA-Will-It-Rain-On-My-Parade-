@@ -23,16 +23,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     { id: 'cold', emoji: '❄️', label: 'Very Cold' }
   ];
 
-  // Configuración de actividades opcionales - selección única
-  const activityOptions = [
-    { id: 'surf', emoji: '🏄', label: 'Surfing' },
-    { id: 'beach', emoji: '🏖️', label: 'Beach Day' },
-    { id: 'run', emoji: '🏃‍♂️', label: 'Running' },
-    { id: 'hike', emoji: '⛰️', label: 'Hiking' },
-    { id: 'sailing', emoji: '⛵', label: 'Sailing' },
-    { id: 'picnic', emoji: '🧺', label: 'Picnic' }
-  ];
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -68,13 +58,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     }));
   };
 
-  // Implementa selección única para actividades opcionales
-  const toggleActivity = (activityId) => {
-    setFormData(prev => ({
-      ...prev,
-      activity: prev.activity === activityId ? null : activityId
-    }));
-  };
 
   // Valida los datos del formulario antes del envío
   const validateFormData = (data) => {
@@ -96,8 +79,8 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
       const oneYearFromNow = new Date();
       oneYearFromNow.setFullYear(today.getFullYear() + 1);
       
-      if (selectedDate < today) {
-        errors.push('Date cannot be in the past');
+      if (selectedDate <= today) {
+        errors.push('Date cannot be today or in the past');
       } else if (selectedDate > oneYearFromNow) {
         errors.push('Date cannot be more than one year in the future');
       }
@@ -117,12 +100,22 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     
     try {
       // Crea el payload con coordenadas - asegura conversión explícita a float
+      // Map frontend weather options to backend expectations
+      const weatherConditionMap = {
+        'wet': 'Very Rainy',
+        'hot': 'Very Hot',
+        'cold': 'Very Cold'
+      };
+      
+      const selectedCondition = formData.weatherConditions[0] || 'hot';
+      const backendCondition = weatherConditionMap[selectedCondition] || 'Very Hot';
+      
       const payload = {
         ...formData,
-        latitude: parseFloat(lat), // Asegura que sea un número float
-        longitude: parseFloat(lon), // Asegura que sea un número float
+        latitude: parseFloat(lat),
+        longitude: parseFloat(lon),
         event_date: formData.date,
-        adverse_condition: formData.weatherConditions[0] || 'hot' // Envía la primera condición seleccionada
+        adverse_condition: backendCondition 
       };
       
       // Validar datos antes del envío
@@ -162,12 +155,23 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
           <label className="block text-lg font-bold text-slate-300 mb-3">
             Step 1: Choose Location
           </label>
-          <MapSelector
-            onLocationSelect={handleMapLocationSelect}
-            isNightMode={isNightMode}
-            initialLat={lat}
-            initialLon={lon}
-          />
+          <div className="space-y-2">
+            <MapSelector
+              onLocationSelect={handleMapLocationSelect}
+              isNightMode={isNightMode}
+              initialLat={lat}
+              initialLon={lon}
+            />
+            
+            {/* INSTRUCCIONES: Guía de uso para el usuario */}
+            <div className={`text-xs rounded-lg p-3 ${
+              isNightMode 
+                ? 'text-slate-400 bg-slate-800/50 border border-slate-700' 
+                : 'text-gray-600 bg-gray-100/50 border border-gray-300'
+            }`}>
+              <strong className={isNightMode ? 'text-slate-300' : 'text-gray-800'}>🗺️ Instructions:</strong> Click anywhere on the map to select your location, or use "Use My Location" to automatically detect your current position.
+            </div>
+          </div>
         </div>
 
         {/* Step 2: Date */}
@@ -186,11 +190,12 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
           />
           
           {/* Informative note about date range */}
-          <div className="mt-2 text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-            <div className="flex items-center">
-              <span className="text-blue-400 mr-2">ℹ️</span>
-              <span><strong>Note:</strong> Predictions are available for up to 1 year in the future</span>
-            </div>
+          <div className={`mt-2 text-xs rounded-lg p-3 ${
+            isNightMode 
+              ? 'text-slate-400 bg-slate-800/50 border border-slate-700' 
+              : 'text-gray-600 bg-gray-100/50 border border-gray-300'
+          }`}>
+            <span><strong>ℹ️ Note:</strong> Predictions are available for up to 1 year in the future</span>
           </div>
         </div>
       </div>
@@ -208,27 +213,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
                 formData.weatherConditions.includes(option.id) ? 'selected' : ''
               }`}
               onClick={() => toggleWeatherCondition(option.id)}
-            >
-              <span className="text-4xl mb-2">{option.emoji}</span>
-              <span className="font-bold text-sm text-center leading-tight">{option.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Step 4: Activity (Optional) */}
-      <div>
-        <label className="block text-lg font-bold text-slate-300 mb-4">
-          Step 4 (Optional): Choose an activity
-        </label>
-        <div id="activity-options" className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {activityOptions.map((option) => (
-            <div
-              key={option.id}
-              className={`selectable-option activity-option flex flex-col items-center justify-center p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer transition-all duration-200 aspect-square hover:scale-105 ${
-                formData.activity === option.id ? 'selected' : ''
-              }`}
-              onClick={() => toggleActivity(option.id)}
             >
               <span className="text-4xl mb-2">{option.emoji}</span>
               <span className="font-bold text-sm text-center leading-tight">{option.label}</span>
@@ -258,7 +242,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
         
         {/* Visualización de errores de validación */}
         {validationErrors.length > 0 && (
-          <div className="mt-4 p-4 bg-red-900/20 border border-red-500 rounded-lg">
+          <div className="mt-4 p-4 bg-red-900/20 border-2 border-red-500 rounded-lg">
             <div className="flex items-center mb-2">
               <span className="text-red-400 text-lg mr-2">⚠️</span>
               <h3 className="text-red-400 font-bold text-sm">Validation errors:</h3>
