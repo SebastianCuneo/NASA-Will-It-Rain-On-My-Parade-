@@ -36,7 +36,7 @@ import React from 'react';
 
 const WeatherResults = ({ data, isNightMode }) => {
   // Extract real data from backend
-  const { location, date, apiResults } = data;
+  const { location, date, apiResults, selectedCondition } = data;
   
   // Check if using fallback data
   const isFallback = apiResults?.is_fallback || false;
@@ -163,8 +163,8 @@ const WeatherResults = ({ data, isNightMode }) => {
                 })()}
               </div>
               <div className={`text-xs mt-1 ${isNightMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                {riskAnalysis?.risk_threshold < 20 ? 'P10 (extreme cold)' : 
-                 riskMessage?.includes('precipitation') ? 'P90 (extreme rainfall)' :
+                {selectedCondition === 'cold' ? 'P10 (extreme cold)' :
+                 selectedCondition === 'wet' ? 'P90 (extreme rainfall)' :
                  'P90 (extreme heat)'}
               </div>
             </div>
