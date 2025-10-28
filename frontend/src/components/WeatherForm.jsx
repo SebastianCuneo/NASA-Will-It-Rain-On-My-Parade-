@@ -1,7 +1,24 @@
 /**
- * WeatherForm Component - Weather Risk Assessment Form
+ * WeatherForm Component - Formulario de evaluación de riesgo climático
  * NASA Weather Risk Navigator
- * Adapted from original HTML design
+ * 
+ * Este componente maneja el flujo completo de entrada de datos del usuario:
+ * 1. Selección de ubicación mediante mapa mundial interactivo
+ * 2. Selección de fecha del evento (desde mañana hasta 1 año adelante)
+ * 3. Selección de condición climática adversa (calor, frío, lluvia)
+ * 
+ * Características:
+ * - Validación de formulario en tiempo real
+ * - Mapa Leaflet interactivo para selección de ubicación global
+ * - Diseño responsive con soporte para modo día/noche
+ * - Soporte de geolocalización para posición actual
+ * - Validación de rango de fechas (fechas pasadas no permitidas)
+ * 
+ * @component
+ * @param {Function} onSubmit - Función de callback cuando se envía el formulario
+ * @param {boolean} loading - Indicador de estado de carga
+ * @param {boolean} isNightMode - Modo de tema (oscuro/claro)
+ * @param {Object} initialData - Datos iniciales del formulario (location, date, weatherConditions)
  */
 
 import React, { useState } from 'react';

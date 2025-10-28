@@ -9,7 +9,6 @@
  * - Reemplaza búsqueda de ciudades con selección visual
  * 
  * CONEXIONES:
- * - ❌ NO se conecta al backend
  * - ✅ Usa OpenStreetMap (servicio externo gratuito)
  * - ✅ Usa API de geolocalización del navegador
  * - ✅ Comunica coordenadas al componente padre via callback
