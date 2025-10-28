@@ -844,11 +844,10 @@ def generate_plan_b_with_gemini(
         risk_context += f"- Risk Message: {risk_message}\n"
         
         # Create enhanced prompt with better structure
-        prompt = f"""You are an expert weather planning assistant for {location}. Generate intelligent Plan B alternatives for outdoor activities when weather conditions are unfavorable.
+        prompt = f"""You are an expert weather planning assistant for {location}. Generate intelligent alternatives compatible with weather conditions when they are unfavorable.
 
 CONTEXT:
-- Original Activity: {activity}
-- Adverse Weather Condition: {adverse_condition}
+- Weather Condition: {adverse_condition}
 - Location: {location}
 - Season: {season}
 - Target Month: {target_month}
@@ -856,12 +855,12 @@ CONTEXT:
 {risk_context}
 
 REQUIREMENTS:
-1. Provide exactly 3-4 specific, actionable alternatives
-2. Consider the season, location, and weather context
-3. Make suggestions practical, enjoyable, and realistic
-4. Include both indoor and outdoor options when weather permits
-5. Be creative but maintain feasibility
-6. Consider local attractions and activities specific to Uruguay
+1. Provide exactly 3-4 specific, actionable activities compatible with the weather conditions
+2. Focus on activities that work well despite {adverse_condition} conditions
+3. Consider the season, location, and weather context
+4. Make suggestions practical, enjoyable, and realistic
+5. Include both indoor and outdoor options when weather permits
+6. Be creative but maintain feasibility
 7. Provide specific locations or venues when possible
 8. Consider cost, accessibility, and time requirements
 

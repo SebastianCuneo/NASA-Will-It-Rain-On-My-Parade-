@@ -23,15 +23,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     { id: 'cold', emoji: '❄️', label: 'Very Cold' }
   ];
 
-  // Configuración de actividades opcionales - selección única
-  const activityOptions = [
-    { id: 'surf', emoji: '🏄', label: 'Surfing' },
-    { id: 'beach', emoji: '🏖️', label: 'Beach Day' },
-    { id: 'run', emoji: '🏃‍♂️', label: 'Running' },
-    { id: 'hike', emoji: '⛰️', label: 'Hiking' },
-    { id: 'sailing', emoji: '⛵', label: 'Sailing' },
-    { id: 'picnic', emoji: '🧺', label: 'Picnic' }
-  ];
+  // Note: Activity selection removed - Plan B will suggest compatible activities based on weather
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -68,13 +60,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     }));
   };
 
-  // Implementa selección única para actividades opcionales
-  const toggleActivity = (activityId) => {
-    setFormData(prev => ({
-      ...prev,
-      activity: prev.activity === activityId ? null : activityId
-    }));
-  };
+  // Activity selection removed - generate Plan B activities compatible with weather
 
   // Valida los datos del formulario antes del envío
   const validateFormData = (data) => {
@@ -117,12 +103,22 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     
     try {
       // Crea el payload con coordenadas - asegura conversión explícita a float
+      // Map frontend weather options to backend expectations
+      const weatherConditionMap = {
+        'wet': 'Very Rainy',
+        'hot': 'Very Hot',
+        'cold': 'Very Cold'
+      };
+      
+      const selectedCondition = formData.weatherConditions[0] || 'hot';
+      const backendCondition = weatherConditionMap[selectedCondition] || 'Very Hot';
+      
       const payload = {
         ...formData,
-        latitude: parseFloat(lat), // Asegura que sea un número float
-        longitude: parseFloat(lon), // Asegura que sea un número float
+        latitude: parseFloat(lat),
+        longitude: parseFloat(lon),
         event_date: formData.date,
-        adverse_condition: formData.weatherConditions[0] || 'hot' // Envía la primera condición seleccionada
+        adverse_condition: backendCondition  // "Very Rainy", "Very Hot", "Very Cold"
       };
       
       // Validar datos antes del envío
@@ -208,27 +204,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
                 formData.weatherConditions.includes(option.id) ? 'selected' : ''
               }`}
               onClick={() => toggleWeatherCondition(option.id)}
-            >
-              <span className="text-4xl mb-2">{option.emoji}</span>
-              <span className="font-bold text-sm text-center leading-tight">{option.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Step 4: Activity (Optional) */}
-      <div>
-        <label className="block text-lg font-bold text-slate-300 mb-4">
-          Step 4 (Optional): Choose an activity
-        </label>
-        <div id="activity-options" className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {activityOptions.map((option) => (
-            <div
-              key={option.id}
-              className={`selectable-option activity-option flex flex-col items-center justify-center p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer transition-all duration-200 aspect-square hover:scale-105 ${
-                formData.activity === option.id ? 'selected' : ''
-              }`}
-              onClick={() => toggleActivity(option.id)}
             >
               <span className="text-4xl mb-2">{option.emoji}</span>
               <span className="font-bold text-sm text-center leading-tight">{option.label}</span>

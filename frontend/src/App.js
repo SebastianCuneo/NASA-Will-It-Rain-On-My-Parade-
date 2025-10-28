@@ -21,8 +21,8 @@ function App() {
   const [formData, setFormData] = useState({
     location: 'Montevideo',
     date: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
-    weatherConditions: ['wet'], // Condición climática por defecto
-    activity: null
+    weatherConditions: ['wet'] // Condición climática por defecto
+    // Note: activity removed - Plan B will suggest compatible activities
   });
   // Estado para mensajes temporales de error/éxito
   const [tempMessage, setTempMessage] = useState(null);

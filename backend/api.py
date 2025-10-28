@@ -32,29 +32,6 @@ logger = logging.getLogger(__name__)
 
 # Import funciones de análisis climático desde logic.py
 try:
-    # ========================================
-    # FUNCIONES DE DATOS HISTÓRICOS
-    # ========================================
-    # fetch_nasa_power_data: Obtiene datos reales de NASA POWER API
-    
-    # ========================================
-    # FUNCIONES DE ANÁLISIS DE RIESGO
-    # ========================================
-    # calculate_heat_risk: Análisis de riesgo de calor (P90)
-    # calculate_cold_risk: Análisis de riesgo de frío (estacional)
-    # calculate_precipitation_risk: Análisis de riesgo de precipitación (P90)
-    
-    # ========================================
-    # FUNCIONES DE TENDENCIAS CLIMÁTICAS
-    # ========================================
-    # get_climate_trend_data: Análisis IPCC/WMO de tendencias
-    
-    # ========================================
-    # FUNCIONES DE PLAN B (AI)
-    # ========================================
-    # generate_plan_b_with_gemini: Generación de alternativas con Gemini AI
-    # generate_fallback_plan_b: Sistema fallback sin IA
-    
     from logic import (
         fetch_nasa_power_data,
         calculate_weather_risk,
@@ -94,7 +71,7 @@ class RiskRequest(BaseModel):
     longitude: float
     event_date: str  # Formato: "DD/MM/YYYY" o "YYYY-MM-DD"
     adverse_condition: str  # Ej: 'Very Hot', 'Very Rainy', 'Very Cold', etc.
-    activity: str = "general"  # Tipo de actividad: 'beach', 'picnic', 'running', 'general'
+    # Note: activity removed - Plan B will generate compatible activities based on weather
     
     model_config = {
         "json_schema_extra": {
@@ -102,8 +79,7 @@ class RiskRequest(BaseModel):
                 "latitude": -34.90,
                 "longitude": -56.16,
                 "event_date": "16/12/2026",
-                "adverse_condition": "Very Cold",
-                "activity": "beach"
+                "adverse_condition": "Very Cold"
             }
         }
     }
@@ -115,7 +91,6 @@ class RiskRequest(BaseModel):
 # - Análisis de riesgo (calor, frío, precipitación) 
 # - Plan B con alternativas generadas por IA
 # - Tendencias climáticas a largo plazo
-# - Visualizaciones para el frontend
 
 @app.post("/api/risk")
 async def get_risk_analysis(request: RiskRequest):
@@ -127,21 +102,18 @@ async def get_risk_analysis(request: RiskRequest):
     - longitude: Longitud del lugar (ej: -56.16)
     - event_date: Fecha del evento (formato: "DD/MM/YYYY" o "YYYY-MM-DD")
     - adverse_condition: Condición adversa a analizar ('Very Hot', 'Very Cold', etc.)
-    - activity: Tipo de actividad ('beach', 'picnic', 'running', 'general')
     
     Retorna:
     - risk_analysis: Análisis de riesgo P90 (probabilidad, umbral, nivel)
     - plan_b: Alternativas generadas por IA o sistema fallback
     - climate_trend: Análisis de tendencias climáticas (IPCC/WMO)
     """
-    print(f'📥 Solicitud recibida: Lat={request.latitude}, Lon={request.longitude}, '
-          f'Fecha={request.event_date}, Condición={request.adverse_condition}')
     
     try:
         # ========================================
         # PASO 0: EXTRAER MES DE LA FECHA DEL EVENTO
         # ========================================
-        print(f"📅 Extrayendo mes de la fecha: {request.event_date}")
+        logger.info(f"Extrayendo mes de la fecha: {request.event_date}")
         
         # Intentar parsear fecha en formato DD/MM/YYYY o YYYY-MM-DD
         try:
@@ -156,116 +128,114 @@ async def get_risk_analysis(request: RiskRequest):
         
         target_month = event_date_obj.month
         target_year = event_date_obj.year
-        print(f"✅ Fecha parseada: año={target_year}, mes={target_month}")
+        logger.info(f"Fecha parseada: año={target_year}, mes={target_month}")
         
         # ========================================
-        # PASO 1: OBTENER DATOS HISTÓRICOS
+        # PASO 1: OBTENER DATOS HISTÓRICOS DE NASA POWER API
         # ========================================
-        print("📊 Obteniendo datos históricos de NASA POWER API...")
+        logger.info("Starting data fetch from NASA POWER API")
         
         # Calcular años para la búsqueda (20 años de historia desde el año del evento)
         start_year = target_year - 20
         end_year = target_year - 1  # Hasta el año anterior al evento
         
-        print(f"📊 Buscando datos de {start_year} a {end_year}")
+        logger.info(f"Fetching data for years {start_year}-{end_year} at coordinates ({request.latitude}, {request.longitude})")
         
-        # TODO: Usar fetch_nasa_power_data para datos reales
-        # Por ahora usar datos de prueba con datos para múltiples meses
-        years = []
-        months = []
-        temps = []
-        precip = []
+        # fetch_nasa_power_data maneja internamente el fallback a Montevideo si NASA falla
+        historical_data = fetch_nasa_power_data(
+            lat=request.latitude,
+            lon=request.longitude,
+            start_year=start_year,
+            end_year=end_year
+        )
         
-        # Crear datos de prueba para 20 años con todos los meses
-        for year in range(start_year, end_year + 1):
-            for month in range(1, 13):
-                years.append(year)
-                months.append(month)
-                # Simular temperatura máxima con variación por mes
-                temps.append(20 + month * 1.5 + (year - start_year) * 0.1)
-                precip.append(5.0 + (month - 6) * 0.5)
-        
-        historical_data = pd.DataFrame({
-            'Year': years,
-            'Month': months,
-            'Max_Temperature_C': temps,
-            'Precipitation_mm': precip
-        })
-        
-        print(f"✅ Datos históricos preparados: {len(historical_data)} registros")
+        logger.info(f"Data fetch completed: {len(historical_data)} records received")
 
         # ========================================
         # PASO 2: ANÁLISIS DE RIESGO P90
         # ========================================
-        print(f"🔬 Calculando análisis de riesgo para el mes {target_month}...")
+        logger.info(f"Starting risk calculation for month {target_month} with condition: {request.adverse_condition}")
         
-        # Determinar tipo de riesgo según la condición adversa
+        # Mapear condición adversa del frontend al tipo de riesgo
+        # El frontend envía: "Very Rainy", "Very Hot", "Very Cold"
         adverse_condition_lower = request.adverse_condition.lower()
+        
         if 'hot' in adverse_condition_lower or 'heat' in adverse_condition_lower:
             risk_type = "heat"
         elif 'cold' in adverse_condition_lower or 'frio' in adverse_condition_lower:
             risk_type = "cold"
-        elif 'rain' in adverse_condition_lower or 'precip' in adverse_condition_lower:
+        elif 'rain' in adverse_condition_lower or 'rainy' in adverse_condition_lower or 'precip' in adverse_condition_lower or 'wet' in adverse_condition_lower:
             risk_type = "precipitation"
         else:
-            # Default a heat
             risk_type = "heat"
+            
+        logger.info(f"Risk type determined: {risk_type} from condition: {request.adverse_condition}")
         
         # Calcular riesgo usando calculate_weather_risk con el mes objetivo
         risk_analysis = calculate_weather_risk(historical_data, risk_type, target_month)
-        print(f"✅ Análisis completado: {risk_analysis.get('risk_level', 'N/A')}")
+        
+        logger.info(f"Risk analysis completed: Level={risk_analysis.get('risk_level')}, "
+                    f"Probability={risk_analysis.get('probability')}%, "
+                    f"Threshold={risk_analysis.get('risk_threshold')}")
 
         # ========================================
-        # PASO 3: ANÁLISIS DE TENDENCIAS CLIMÁTICAS
+        # PASO 3: ANÁLISIS DE TENDENCIAS CLIMÁTICAS (IPCC/WMO)
         # ========================================
-        print("📈 Calculando tendencias climáticas (IPCC/WMO)...")
+        logger.info(f"Starting climate trend analysis for month {target_month}")
         
-        # Filtrar datos históricos para el mes objetivo
+        # Filtrar datos históricos para el mes objetivo (comparar primeros vs últimos 5 años)
         monthly_data_for_trend = filter_data_by_month(historical_data, target_month)
         
-        # Analizar tendencias climáticas en el mes objetivo
+        logger.info(f"Monthly data filtered: {len(monthly_data_for_trend)} records from month {target_month}")
+        
+        # Analizar tendencias climáticas en el mes objetivo usando metodología IPCC/WMO
+        # Compara temperatura promedio de primeros 5 años vs últimos 5 años
         climate_trend_result = analyze_climate_change_trend(monthly_data_for_trend)
         
         # Formatear mensaje de tendencia para el frontend
         climate_message = f"Climate Trend: {climate_trend_result.get('trend_status', 'UNKNOWN')} - {climate_trend_result.get('message', 'No trend data')}"
         
-        print(f"✅ Tendencias completadas: {climate_trend_result.get('trend_status', 'N/A')}")
+        logger.info(f"Climate trend analysis completed: Status={climate_trend_result.get('trend_status')}, "
+                    f"Difference={climate_trend_result.get('difference', 0):.2f}°C")
         
         # ========================================
-        # PASO 4: GENERACIÓN DE PLAN B
+        # PASO 4: GENERACIÓN DE PLAN B (AI-POWERED ALTERNATIVES)
         # ========================================
-        print("🤖 Generando Plan B con Gemini AI...")
+        logger.info("Starting Plan B generation with Gemini AI")
         
         # Intentar con Gemini AI, si falla usar fallback
+        # Gemini genera actividades compatibles con el clima y ubicación
         try:
             plan_b = generate_plan_b_with_gemini(
-                activity=request.activity,
+                activity="general",  # No specific activity - generate compatible activities
                 adverse_condition=request.adverse_condition.lower(),
                 risk_analysis=risk_analysis,
                 location=f"{request.latitude}, {request.longitude}",
                 target_month=target_month,
                 latitude=request.latitude
             )
-        except Exception as gemini_error:
-            logger.warning(f"⚠️ Gemini AI falló, activando sistema fallback: {gemini_error}")
-            print(f"⚠️ Gemini AI falló, usando sistema fallback: {gemini_error}")
+            logger.info(f"Gemini AI successful: Generated {len(plan_b.get('alternatives', []))} alternatives")
             
+        except Exception as gemini_error:
+            logger.warning(f"Gemini AI falló, activando sistema fallback: {gemini_error}")
+
+            # Sistema fallback: usa alternativas predefinidas sin IA
             plan_b = generate_fallback_plan_b(
-                activity=request.activity,
+                activity="general",  # No specific activity - provide general alternatives
                 adverse_condition=request.adverse_condition.lower(),
                 risk_level=risk_analysis.get('risk_level', 'MODERATE'),
                 location=f"{request.latitude}, {request.longitude}",
                 target_month=target_month,
                 latitude=request.latitude
             )
-            logger.info("✅ Sistema fallback activado correctamente")
-        
-        print(f"✅ Plan B generado: {len(plan_b.get('alternatives', []))} alternativas")
-        
+            logger.info(f"Sistema fallback activado: Generated {len(plan_b.get('alternatives', []))} alternatives")
+                
         # ========================================
         # PASO 5: RESPUESTA CONSOLIDADA
         # ========================================
-        return {
+        logger.info("Consolidating final response with all analyses")
+        
+        response = {
             "success": True,
             "risk_analysis": risk_analysis,
             "plan_b": plan_b,
@@ -273,12 +243,17 @@ async def get_risk_analysis(request: RiskRequest):
             "climate_trend_details": climate_trend_result
         }
         
+        logger.info("Endpoint /api/risk completed successfully")
+        
+        return response
+        
     except Exception as e:
-        print(f"❌ Error en el servidor: {str(e)}")
+        logger.error(f"Error in /api/risk endpoint: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Internal Server Error: {str(e)}"
         )
+
 # ========================================
 # SERVER STARTUP
 # ========================================
@@ -289,3 +264,115 @@ if __name__ == "__main__":
     print("📡 Endpoint disponible: POST http://localhost:8000/api/risk")
     print("📚 Documentación: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# =============================================================================
+# EJEMPLO DE RESPUESTA COMPLETA DEL ENDPOINT /api/risk
+# =============================================================================
+"""
+EJEMPLO DE REQUEST (desde frontend):
+POST http://localhost:8000/api/risk
+{
+    "latitude": -34.90,
+    "longitude": -56.16,
+    "event_date": "2026-12-16",
+    "adverse_condition": "Very Cold"  // Frontend envía: "Very Cold", "Very Hot", "Very Rainy"
+}
+
+
+EJEMPLO DE RESPONSE:
+{
+    "success": true,
+    "risk_analysis": {
+        "probability": 25.5,
+        "risk_threshold": 15.2,
+        "status_message": "❄️ MODERATE RISK of cold weather. Dress warmly!",
+        "risk_level": "MODERATE",
+        "total_observations": 620,
+        "adverse_count": 158
+    },
+    "plan_b": {
+        "success": true,
+        "message": "Generated 4 Plan B alternatives using Gemini AI",
+        "alternatives": [
+            {
+                "title": "Museo Torres García",
+                "description": "Explore Uruguayan art in a climate-controlled museum",
+                "type": "indoor",
+                "reason": "Warm cultural experience perfect for cold weather",
+                "tips": "Check current exhibitions and guided tour schedules",
+                "location": "Sarandí 683, Montevideo",
+                "duration": "2-3 hours",
+                "cost": "Low"
+            },
+            {
+                "title": "Termas de Daymán",
+                "description": "Relax in natural hot springs",
+                "type": "outdoor",
+                "reason": "Hot water therapy is ideal for cold weather",
+                "tips": "Bring towels, wear flip-flops, check pool temperatures",
+                "location": "Salto, Uruguay",
+                "duration": "Half day",
+                "cost": "Medium"
+            },
+            {
+                "title": "Indoor Markets Tour",
+                "description": "Visit Mercado del Puerto and try Uruguayan barbecue",
+                "type": "indoor",
+                "reason": "Food experience in warm environment",
+                "tips": "Try traditional parrillada and local wines",
+                "location": "Mercado del Puerto, Montevideo",
+                "duration": "2-3 hours",
+                "cost": "Medium"
+            },
+            {
+                "title": "Teatro Solís",
+                "description": "Attend a performance in Uruguay's historic theater",
+                "type": "indoor",
+                "reason": "Cultural entertainment in beautiful warm venue",
+                "tips": "Book tickets in advance, dress code varies",
+                "location": "Buenos Aires, Montevideo",
+                "duration": "2-4 hours",
+                "cost": "Medium"
+            }
+        ],
+        "ai_model": "Gemini 2.0 Flash",
+        "generated_at": "2025-01-15T18:30:00",
+        "context": {
+            "activity": "general",
+            "adverse_condition": "very cold",
+            "risk_level": "MODERATE",
+            "location": "-34.90, -56.16",
+            "season": "Summer",
+            "target_month": 12
+        }
+    },
+    "climate_trend": "Climate Trend: WARMING_TREND - 🟠 WARMING TREND: +0.85°C over 20 years. Statistically significant warming detected - heat risk is increasing.",
+    "climate_trend_details": {
+        "trend_status": "WARMING_TREND",
+        "early_period_mean": 23.45,
+        "recent_period_mean": 24.30,
+        "difference": 0.85,
+        "early_years": [2006, 2007, 2008, 2009, 2010],
+        "recent_years": [2021, 2022, 2023, 2024, 2025],
+        "message": "🟠 WARMING TREND: +0.85°C over 20 years. Statistically significant warming detected - heat risk is increasing.",
+        "methodology": "IPCC/WMO standard analysis",
+        "data_period": "20 years (2006-2025)"
+    }
+}
+
+NOTAS:
+- risk_analysis: Análisis de riesgo para el mes objetivo (diciembre)
+- plan_b: Actividades compatibles generadas por IA según clima
+- climate_trend: Mensaje resumido de tendencia climática
+- climate_trend_details: Detalles científicos completos del análisis IPCC/WMO
+
+FLUJO:
+1. Extrae mes (12) de event_date
+2. Obtiene 20 años de datos de NASA POWER API
+3. Filtra datos para diciembre (target_month=12)
+4. Calcula riesgo de cold usando P10 en Max_Temperature_C
+5. Analiza tendencias climáticas (primeros 5 vs últimos 5 años)
+6. Genera Plan B con Gemini AI usando contexto completo
+7. Retorna todo en una sola respuesta consolidada
+"""

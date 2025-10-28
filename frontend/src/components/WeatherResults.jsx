@@ -11,16 +11,13 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import useGeminiAI from '../hooks/useGeminiAI';
 
 const WeatherResults = ({ data, isNightMode }) => {
-  const [planBData, setPlanBData] = useState(null);
-  const [planBLoading, setPlanBLoading] = useState(false);
-  const [planBError, setPlanBError] = useState(null);
-  const [aiModel, setAiModel] = useState('Local Intelligence System');
-  
-  // Hook para Gemini AI
-  const { generatePlanB, isLoading: geminiLoading, error: geminiError } = useGeminiAI();
+  // Plan B comes from backend via apiResults
+  const planBData = apiResults?.plan_b?.alternatives || null;
+  const planBLoading = false; // Backend handles loading
+  const planBError = apiResults?.plan_b?.success ? null : 'Error generating Plan B';
+  const aiModel = apiResults?.plan_b?.ai_model || 'Backend System';
 
   // Datos mock para condiciones meteorológicas - usado como fallback cuando no hay datos de API
   const mockData = {

@@ -39,31 +39,30 @@ const useWeatherAPI = () => {
     setResults(null);
     
     try {
-      // Mapear IDs de actividad del frontend a nombres del backend
-      const activityMap = {
-        'surf': 'beach',
-        'beach': 'beach',
-        'run': 'running',
-        'hike': 'hiking',
-        'sailing': 'sailing',
-        'picnic': 'picnic'
+      // Map frontend IDs to backend conditions
+      const weatherConditionMap = {
+        'wet': 'Very Rainy',
+        'hot': 'Very Hot',
+        'cold': 'Very Cold'
       };
+      
+      const selectedCondition = data.weatherConditions[0] || 'hot';
+      const backendCondition = weatherConditionMap[selectedCondition] || 'Very Hot';
       
       // Crear payload para la llamada API con datos del formulario
       const apiPayload = {
-        latitude: data.latitude,  // Usar coordenadas del formulario
+        latitude: data.latitude,
         longitude: data.longitude,
-        event_date: data.event_date,  // Enviar fecha como string
-        adverse_condition: data.weatherConditions[0] || 'Very Hot',  // Enviar primera condición seleccionada
-        activity: activityMap[data.activity] || 'general'  // Mapear actividad y usar 'general' por defecto
+        event_date: data.event_date,
+        adverse_condition: backendCondition  // "Very Rainy", "Very Hot", "Very Cold"
       };
     
       // INFO: Log del payload antes del envío al backend
       console.info('🌐 API Payload:', apiPayload);
-      console.debug('🌐 API URL: http://localhost:8000/api/risk-working');
+      console.debug('🌐 API URL: http://localhost:8000/api/risk');
       
-      // Llamada al backend FastAPI usando endpoint completo con datos de NASA
-      const response = await fetch('http://localhost:8000/api/risk-working', {
+      // Llamada al backend FastAPI usando endpoint único consolidado
+      const response = await fetch('http://localhost:8000/api/risk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
