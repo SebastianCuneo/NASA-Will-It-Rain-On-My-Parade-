@@ -107,7 +107,8 @@ const useWeatherAPI = () => {
         precipitation_risk: precipRisk,
         cold_risk: coldRisk,
         climate_trend: climateTrend,
-        plan_b: planB
+        plan_b: planB,
+        selectedCondition: selectedCondition  // "cold", "hot", "wet" - para mostrar threshold correcto
       };
 
       setResults(combinedData);
