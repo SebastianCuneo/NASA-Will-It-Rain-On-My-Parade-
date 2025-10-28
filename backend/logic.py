@@ -1,7 +1,47 @@
 """
-The Parade Planner - Core Logic Module
-NASA Space Apps Challenge MVP
-Enhanced with NASA POWER API integration
+NASA Weather Risk Navigator - Core Logic Module
+Lógica de Negocio y Cálculos Científicos
+
+Este módulo contiene toda la lógica científica y de negocio del sistema,
+incluyendo integración con APIs externas, cálculos de riesgo, análisis
+de cambio climático y generación de alternativas con IA.
+
+Secciones Principales:
+-----------------------
+
+1. **Conexión con NASA POWER API**
+   - fetch_nasa_power_data(): Obtiene datos históricos globales (20 años)
+   - load_fallback_data(): Carga datos de respaldo para Montevideo
+   - Manejo automático de fallback si la API de NASA falla
+
+2. **Cálculo de Riesgo Climático**
+   - calculate_heat_risk(): Riesgo de calor (>30°C) con P90 como referencia
+   - calculate_cold_risk(): Riesgo de frío (<10°C) con P10 como referencia
+   - calculate_precipitation_risk(): Riesgo de lluvia (>5mm) con P90 como referencia
+   - Metodología unificada con thresholds fijos para probabilidad variable
+
+3. **Análisis de Cambio Climático**
+   - analyze_climate_change_trend(): Compara primeros 5 años vs últimos 5 años
+   - Usa metodología IPCC/WMO con T2M (temperatura promedio diaria)
+   - Clasificación: SIGNIFICANT_WARMING, WARMING_TREND, STABLE, COOLING_TREND
+
+4. **Generación de Plan B con IA**
+   - generate_plan_b_with_gemini(): Alternativas inteligentes con Google Gemini
+   - Context-aware basado en clima, ubicación y estación
+   - Genera actividades compatibles sin necesidad de "actividad original"
+
+5. **Utilidades**
+   - filter_data_by_month(): Filtra datos históricos por mes
+   - calculate_season_from_month(): Determina estación según hemisferio
+   - validate_coordinates(): Valida coordenadas globales
+
+Metodología Científica:
+-----------------------
+- Thresholds fijos (30°C, 10°C, 5mm) para cálculo de probabilidad
+- P90/P10 como referencia de eventos extremos locales
+- 20 años de datos históricos de NASA POWER API
+- Filtrado por mes específico para precisión estacional
+- Comparación de períodos para detección de tendencias
 """
 
 # =============================================================================

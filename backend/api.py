@@ -1,18 +1,37 @@
 """
 NASA Weather Risk Navigator - Backend API
-NASA Space Apps Challenge - FastAPI Backend
+FastAPI Backend Server
 
-Este API utiliza un enfoque de endpoint único que devuelve todos los análisis
-necesarios en una sola respuesta consolidada.
+Este API implementa una arquitectura de endpoint único que consolida
+todos los análisis necesarios en una sola respuesta completa.
 
-Endpoint Principal: POST /api/risk
+Endpoint Principal:
+-------------------
+POST /api/risk
 
-Respuesta Incluye:
-- risk_analysis: Análisis de riesgo climático (calor, frío, precipitación)
-- plan_b: Alternativas generadas por IA (Gemini) o sistema fallback
-- climate_trend: Análisis de tendencias climáticas (IPCC/WMO)
-- visualizations: Datos para visualizaciones Plotly
+Recibe:
+- latitude, longitude: Coordenadas globales del evento
+- event_date: Fecha del evento (formato YYYY-MM-DD)
+- adverse_condition: Condición climática a evaluar (hot, cold, wet)
 
+Devuelve:
+- risk_analysis: Análisis de riesgo con umbrales fijos (30°C, 10°C, 5mm) y P90/P10 como referencia
+- plan_b: Alternativas generadas por IA (Google Gemini) o éxito=false si no está disponible
+- climate_trend: Análisis de tendencias climáticas usando metodología IPCC/WMO
+- is_fallback: Indicador de si se usaron datos de respaldo
+
+Arquitectura:
+- Single endpoint design para simplificar el frontend
+- Integración con NASA POWER API para datos globales
+- Gemini AI para generación de Plan B contextual
+- Fallback automático a datos Montevideo si NASA API falla
+- Conversión automática de tipos NumPy a Python nativo para JSON
+
+Características:
+- CORS habilitado para desarrollo local
+- Logging completo de todas las operaciones
+- Manejo robusto de errores
+- Documentación automática en /docs
 """
 # ========================================
 # IMPORTS

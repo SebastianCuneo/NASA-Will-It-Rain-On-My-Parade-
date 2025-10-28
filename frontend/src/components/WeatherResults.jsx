@@ -1,18 +1,42 @@
 /**
- * WeatherResults Component - Display Weather Risk Assessment Results
+ * WeatherResults Component - Visualización completa de riesgo climático
  * NASA Weather Risk Navigator
  * 
- * Shows:
- * 1. Weather risk analysis for selected condition
- * 2. Compatible activities from Plan B (AI-generated)
- * 3. Climate change analysis (long-term trends)
+ * Muestra una evaluación de riesgo completa con tres secciones principales:
+ * 
+ * 1. **Análisis de Riesgo Climático**
+ *    - Cálculo de probabilidad (0-100%)
+ *    - Clasificación de nivel de riesgo (HIGH, MODERATE, LOW, MINIMAL)
+ *    - Indicadores visuales de umbrales (P90/P10 para eventos extremos)
+ *    - Conteo de días adversos históricos
+ * 
+ * 2. **Actividades Compatibles (Plan B)**
+ *    - Alternativas generadas por IA usando Google Gemini
+ *    - Sugerencias contextuales basadas en clima y ubicación
+ *    - Tarjetas de actividades con clasificación de tipo (indoor/outdoor)
+ * 
+ * 3. **Impacto del Cambio Climático**
+ *    - Visualización de tendencia a largo plazo (primeros 5 años vs últimos 5 años)
+ *    - Clasificación con metodología IPCC/WMO
+ *    - Barra de progreso visual con niveles de riesgo codificados por color
+ *    - Indicadores de cambio de temperatura
+ * 
+ * Características:
+ * - Pantallas de riesgo codificadas por color dinámicamente
+ * - Diseños de grid responsivos
+ * - Manejo de fallback elegante
+ * - Soporte de tema día/noche
+ * 
+ * @component
+ * @param {Object} data - Respuesta completa de la API con análisis de riesgo, plan B y datos climáticos
+ * @param {boolean} isNightMode - Modo de tema (oscuro/claro)
  */
 
 import React from 'react';
 
 const WeatherResults = ({ data, isNightMode }) => {
   // Extract real data from backend
-  const { location, date, apiResults } = data;
+  const { location, date, apiResults, selectedCondition } = data;
   
   // Check if using fallback data
   const isFallback = apiResults?.is_fallback || false;
@@ -139,8 +163,8 @@ const WeatherResults = ({ data, isNightMode }) => {
                 })()}
               </div>
               <div className={`text-xs mt-1 ${isNightMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                {riskAnalysis?.risk_threshold < 20 ? 'P10 (extreme cold)' : 
-                 riskMessage?.includes('precipitation') ? 'P90 (extreme rainfall)' :
+                {selectedCondition === 'cold' ? 'P10 (extreme cold)' :
+                 selectedCondition === 'wet' ? 'P90 (extreme rainfall)' :
                  'P90 (extreme heat)'}
               </div>
             </div>
