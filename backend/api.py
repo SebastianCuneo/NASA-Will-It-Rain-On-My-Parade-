@@ -163,15 +163,15 @@ async def get_risk_analysis(request: RiskRequest):
         # ========================================
         logger.info(f"Starting risk calculation for month {target_month} with condition: {request.adverse_condition}")
         
-        # Mapear condición adversa del frontend al tipo de riesgo
-        # El frontend envía: "Very Rainy", "Very Hot", "Very Cold"
+        # Map condition ID directly to risk type (cold, hot, wet)
+        # Frontend sends: "cold", "hot", "wet"
         adverse_condition_lower = request.adverse_condition.lower()
         
-        if 'hot' in adverse_condition_lower or 'heat' in adverse_condition_lower:
+        if adverse_condition_lower == 'hot':
             risk_type = "heat"
-        elif 'cold' in adverse_condition_lower or 'frio' in adverse_condition_lower:
+        elif adverse_condition_lower == 'cold':
             risk_type = "cold"
-        elif 'rain' in adverse_condition_lower or 'rainy' in adverse_condition_lower or 'precip' in adverse_condition_lower or 'wet' in adverse_condition_lower:
+        elif adverse_condition_lower == 'wet':
             risk_type = "precipitation"
         else:
             risk_type = "heat"
@@ -214,8 +214,7 @@ async def get_risk_analysis(request: RiskRequest):
         # Gemini genera actividades compatibles con el clima y ubicación
         try:
             plan_b = generate_plan_b_with_gemini(
-                activity="general",  # No specific activity - generate compatible activities
-                adverse_condition=request.adverse_condition.lower(),
+                adverse_condition=request.adverse_condition,  # Direct: cold, hot, wet
                 risk_analysis=risk_analysis,
                 location=f"{request.latitude}, {request.longitude}",
                 target_month=target_month,
@@ -228,8 +227,7 @@ async def get_risk_analysis(request: RiskRequest):
 
             # Sistema fallback: usa alternativas predefinidas sin IA
             plan_b = generate_fallback_plan_b(
-                activity="general",  # No specific activity - provide general alternatives
-                adverse_condition=request.adverse_condition.lower(),
+                adverse_condition=request.adverse_condition,  # Direct: cold, hot, wet
                 risk_level=risk_analysis.get('risk_level', 'MODERATE'),
                 location=f"{request.latitude}, {request.longitude}",
                 target_month=target_month,
@@ -263,8 +261,12 @@ async def get_risk_analysis(request: RiskRequest):
         plan_b_converted = convert_to_python_types(plan_b)
         climate_trend_details_converted = convert_to_python_types(climate_trend_result)
         
+        # Check if we used fallback data
+        is_fallback = historical_data.get('is_fallback', [False]).iloc[0] if isinstance(historical_data, pd.DataFrame) and len(historical_data) > 0 else False
+        
         response = {
             "success": True,
+            "is_fallback": bool(is_fallback),
             "risk_analysis": risk_analysis_converted,
             "plan_b": plan_b_converted,
             "climate_trend": climate_message,
@@ -367,7 +369,6 @@ EJEMPLO DE RESPONSE:
         "ai_model": "Gemini 2.0 Flash",
         "generated_at": "2025-01-15T18:30:00",
         "context": {
-            "activity": "general",
             "adverse_condition": "very cold",
             "risk_level": "MODERATE",
             "location": "-34.90, -56.16",

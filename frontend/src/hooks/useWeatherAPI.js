@@ -39,22 +39,15 @@ const useWeatherAPI = () => {
     setResults(null);
     
     try {
-      // Map frontend IDs to backend conditions
-      const weatherConditionMap = {
-        'wet': 'Very Rainy',
-        'hot': 'Very Hot',
-        'cold': 'Very Cold'
-      };
-      
+      // Use condition ID directly (cold, hot, wet)
       const selectedCondition = data.weatherConditions[0] || 'hot';
-      const backendCondition = weatherConditionMap[selectedCondition] || 'Very Hot';
       
       // Crear payload para la llamada API con datos del formulario
       const apiPayload = {
         latitude: data.latitude,
         longitude: data.longitude,
         event_date: data.event_date,
-        adverse_condition: backendCondition  // "Very Rainy", "Very Hot", "Very Cold"
+        adverse_condition: selectedCondition  // "cold", "hot", "wet"
       };
     
       // INFO: Log del payload antes del envío al backend
@@ -99,11 +92,20 @@ const useWeatherAPI = () => {
         total_observations: riskAnalysis?.total_observations || 0
       };
       
+      // Create individual risk objects for compatibility with WeatherResults
+      // Backend only returns risk for the selected condition, so we map it to the appropriate risk type
+      const tempRisk = selectedCondition === 'hot' ? riskData : null;
+      const precipRisk = selectedCondition === 'wet' ? riskData : null;
+      const coldRisk = selectedCondition === 'cold' ? riskData : null;
+      
       // Combinar datos de API con datos del formulario para distribución a componentes
       const combinedData = {
         ...data,
         apiResults: apiData,
         risk_data: riskData,
+        temperature_risk: tempRisk,
+        precipitation_risk: precipRisk,
+        cold_risk: coldRisk,
         climate_trend: climateTrend,
         plan_b: planB
       };

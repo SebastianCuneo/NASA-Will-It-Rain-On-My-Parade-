@@ -23,8 +23,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     { id: 'cold', emoji: '❄️', label: 'Very Cold' }
   ];
 
-  // Note: Activity selection removed - Plan B will suggest compatible activities based on weather
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -60,7 +58,6 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
     }));
   };
 
-  // Activity selection removed - generate Plan B activities compatible with weather
 
   // Valida los datos del formulario antes del envío
   const validateFormData = (data) => {
@@ -118,7 +115,7 @@ const WeatherForm = ({ onSubmit, loading, isNightMode, initialData }) => {
         latitude: parseFloat(lat),
         longitude: parseFloat(lon),
         event_date: formData.date,
-        adverse_condition: backendCondition  // "Very Rainy", "Very Hot", "Very Cold"
+        adverse_condition: backendCondition 
       };
       
       // Validar datos antes del envío

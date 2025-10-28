@@ -103,6 +103,10 @@ def load_fallback_data(start_year: int, end_year: int) -> pd.DataFrame:
         df_processed = df_processed.sort_values(['Year', 'Month']).reset_index(drop=True)
         
         logger.info(f"Successfully loaded {len(df_processed)} fallback records from Montevideo data")
+        logger.warning("⚠️ FALLBACK MODE: Using Montevideo fallback data instead of NASA API")
+        
+        # Add a flag to indicate this is fallback data
+        df_processed['is_fallback'] = True
         return df_processed
         
     except Exception as e:
@@ -320,6 +324,9 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         logger.info("Creating final DataFrame...")
         df = pd.DataFrame(records)
         
+        # Limpieza de datos: reemplazar -999 con NaN (valores faltantes de NASA)
+        df = df.replace(-999, np.nan)
+        
         # Limpieza de datos: eliminación de filas con valores nulos
         initial_count = len(df)
         df = df.dropna()
@@ -343,6 +350,9 @@ def fetch_nasa_power_data(lat: float, lon: float, start_year: int, end_year: int
         logger.info(f"Date range: {df['Year'].min()}-{df['Month'].min():02d} to {df['Year'].max()}-{df['Month'].max():02d}")
         logger.info(f"Temperature range: {df['Max_Temperature_C'].min():.1f}C to {df['Max_Temperature_C'].max():.1f}C")
         logger.info(f"Precipitation range: {df['Precipitation_mm'].min():.1f}mm to {df['Precipitation_mm'].max():.1f}mm")
+        
+        # Mark as real NASA data
+        df['is_fallback'] = False
         
         return df
         
@@ -399,7 +409,12 @@ def filter_data_by_month(historical_data: pd.DataFrame, target_month: int) -> pd
 
 def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
-    Calculate heat risk using P90 methodology on Max_Temperature_C
+    Calculate heat risk using P90 threshold but calculating probability of exceeding it.
+    
+    Methodology:
+    - P90 defines "extreme heat" threshold (top 10% of temperatures)
+    - But we want to know: what % of days historically exceeded this threshold
+    - This gives us the probability of experiencing extreme heat
     """
     # Validación inicial
     if monthly_data.empty or 'Max_Temperature_C' not in monthly_data.columns:
@@ -424,14 +439,21 @@ def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
             'adverse_count': 0
         }
     
-    # Calcular threshold usando P90
-    risk_threshold = np.percentile(valid_data['Max_Temperature_C'], 90)
+    # Calcular P90 como umbral de referencia de calor extremo
+    p90_threshold = np.percentile(valid_data['Max_Temperature_C'], 90)
     
-    # Contar eventos adversos (días > threshold)
-    adverse_events = valid_data[valid_data['Max_Temperature_C'] > risk_threshold]
+    # Usar umbral FIJO de 30°C para calcular probabilidad (como precipitación usa 5mm)
+    fixed_threshold = 30.0  # Umbral de calor significativo (sensible para salud)
+    risk_threshold = fixed_threshold
+    
+    # Contar cuántos días superaron el umbral fijo
+    adverse_events = valid_data[valid_data['Max_Temperature_C'] > fixed_threshold]
     total_observations = len(valid_data)
     adverse_count = len(adverse_events)
     probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
+    
+    # P90 se usa solo como referencia de calor extremo
+    extreme_heat_threshold = p90_threshold  # Para referencia en mensajes
     
     # Determinar nivel de riesgo
     if probability >= 20:
@@ -443,13 +465,15 @@ def calculate_heat_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     else:
         risk_level = "MINIMAL"
     
-    # Mensaje personalizado
-    if risk_threshold >= 30.0:
-        status_message = f"🚨 HIGH RISK of extreme heat! P90 Threshold: {risk_threshold:.1f}°C."
-    elif risk_threshold >= 25.0:
-        status_message = f"⚠️ MODERATE RISK of warm weather. P90 Threshold: {risk_threshold:.1f}°C."
+    # Mensaje personalizado basado en risk_level
+    if risk_level == "HIGH":
+        status_message = f"🚨 HIGH RISK of heat (>{risk_threshold:.1f}°C). Extreme heat threshold: {extreme_heat_threshold:.1f}°C (P90)."
+    elif risk_level == "MODERATE":
+        status_message = f"⚠️ MODERATE RISK of heat (>{risk_threshold:.1f}°C). Extreme heat threshold: {extreme_heat_threshold:.1f}°C (P90)."
+    elif risk_level == "LOW":
+        status_message = f"☀️ LOW RISK of heat (>{risk_threshold:.1f}°C). Extreme heat threshold: {extreme_heat_threshold:.1f}°C (P90)."
     else:
-        status_message = f"☀️ LOW RISK of extreme heat. P90 Threshold: {risk_threshold:.1f}°C."
+        status_message = f"✅ MINIMAL RISK of heat (>{risk_threshold:.1f}°C). Extreme heat threshold: {extreme_heat_threshold:.1f}°C (P90)."
     
     return {
         'probability': round(probability, 1),
@@ -487,14 +511,21 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
             'adverse_count': 0
         }
     
-    # Usar threshold fijo de 5mm (precipitación significativa)
-    risk_threshold = 5.0
+    # Calcular P90 como umbral de referencia de precipitación extrema
+    p90_threshold = np.percentile(valid_data['Precipitation_mm'], 90) if len(valid_data) > 0 else 0
+    
+    # Usar umbral FIJO de 5mm para calcular probabilidad
+    fixed_threshold = 5.0  # Precipitación significativa
+    risk_threshold = fixed_threshold
     
     # Contar eventos adversos (días con precipitation > threshold)
-    adverse_events = valid_data[valid_data['Precipitation_mm'] > risk_threshold]
+    adverse_events = valid_data[valid_data['Precipitation_mm'] > fixed_threshold]
     total_observations = len(valid_data)
     adverse_count = len(adverse_events)
     probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
+    
+    # P90 se usa solo como referencia de lluvia extrema
+    extreme_precipitation_threshold = p90_threshold  # Para referencia
     
     # Determinar nivel de riesgo
     if probability >= 20:
@@ -506,15 +537,15 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     else:
         risk_level = "MINIMAL"
     
-    # Mensaje personalizado
-    if probability >= 20:
-        status_message = "🌧️ HIGH RISK of heavy precipitation. Consider indoor alternatives."
-    elif probability >= 10:
-        status_message = "🌦️ MODERATE RISK of rain. Bring umbrella."
-    elif probability >= 5:
-        status_message = "🌤️ LOW RISK of precipitation. Light rain possible."
+    # Mensaje personalizado basado en risk_level
+    if risk_level == "HIGH":
+        status_message = f"🌧️ HIGH RISK of precipitation (>{risk_threshold:.1f}mm). Extreme precipitation threshold: {extreme_precipitation_threshold:.1f}mm (P90)."
+    elif risk_level == "MODERATE":
+        status_message = f"🌦️ MODERATE RISK of precipitation (>{risk_threshold:.1f}mm). Extreme precipitation threshold: {extreme_precipitation_threshold:.1f}mm (P90)."
+    elif risk_level == "LOW":
+        status_message = f"🌤️ LOW RISK of precipitation (>{risk_threshold:.1f}mm). Extreme precipitation threshold: {extreme_precipitation_threshold:.1f}mm (P90)."
     else:
-        status_message = "☀️ MINIMAL RISK of rain. Dry conditions expected."
+        status_message = f"☀️ MINIMAL RISK of precipitation (>{risk_threshold:.1f}mm). Extreme precipitation threshold: {extreme_precipitation_threshold:.1f}mm (P90)."
     
     return {
         'probability': round(probability, 1),
@@ -527,7 +558,12 @@ def calculate_precipitation_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
 
 def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     """
-    Calculate cold weather risk using P10 methodology on Max_Temperature_C
+    Calculate cold weather risk using P10 threshold but calculating probability of below moderate threshold.
+    
+    Methodology:
+    - P10 defines "extreme cold" threshold (bottom 10% of temperatures)
+    - But we want to know: what % of days historically were below a moderate cold threshold
+    - This gives us the probability of experiencing cold weather
     """
     # Validación inicial
     if monthly_data.empty or 'Max_Temperature_C' not in monthly_data.columns:
@@ -552,14 +588,21 @@ def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
             'adverse_count': 0
         }
     
-    # Calcular threshold usando P10
-    risk_threshold = np.percentile(valid_data['Max_Temperature_C'], 10)
+    # Calcular P10 como umbral de referencia de frío extremo
+    p10_threshold = np.percentile(valid_data['Max_Temperature_C'], 10)
     
-    # Contar eventos adversos (días < threshold)
-    adverse_events = valid_data[valid_data['Max_Temperature_C'] < risk_threshold]
+    # Usar umbral FIJO de 10°C para calcular probabilidad (como precipitación usa 5mm)
+    fixed_threshold = 10.0  # Umbral de frío significativo (incomodidad)
+    risk_threshold = fixed_threshold
+    
+    # Contar cuántos días estuvieron por debajo del umbral fijo
+    adverse_events = valid_data[valid_data['Max_Temperature_C'] < fixed_threshold]
     total_observations = len(valid_data)
     adverse_count = len(adverse_events)
     probability = (adverse_count / total_observations) * 100 if total_observations > 0 else 0
+    
+    # P10 se usa solo como referencia de frío extremo
+    extreme_cold_threshold = p10_threshold  # Para referencia en mensajes
     
     # Determinar nivel de riesgo
     if probability >= 20:
@@ -571,15 +614,15 @@ def calculate_cold_risk(monthly_data: pd.DataFrame) -> Dict[str, Any]:
     else:
         risk_level = "MINIMAL"
     
-    # Mensaje personalizado
-    if probability >= 20:
-        status_message = "🧊 HIGH RISK of cold weather. Consider warmer dates or indoor alternatives!"
-    elif probability >= 10:
-        status_message = "❄️ MODERATE RISK of cold weather. Dress warmly!"
-    elif probability >= 5:
-        status_message = "🌤️ LOW RISK of cold weather. Light jacket recommended."
+    # Mensaje personalizado basado en risk_level
+    if risk_level == "HIGH":
+        status_message = f"🧊 HIGH RISK of cold (<{risk_threshold:.1f}°C). Extreme cold threshold: {extreme_cold_threshold:.1f}°C (P10)."
+    elif risk_level == "MODERATE":
+        status_message = f"❄️ MODERATE RISK of cold (<{risk_threshold:.1f}°C). Extreme cold threshold: {extreme_cold_threshold:.1f}°C (P10)."
+    elif risk_level == "LOW":
+        status_message = f"🌤️ LOW RISK of cold (<{risk_threshold:.1f}°C). Extreme cold threshold: {extreme_cold_threshold:.1f}°C (P10)."
     else:
-        status_message = "☀️ MINIMAL RISK of cold weather. Comfortable temperatures expected."
+        status_message = f"☀️ MINIMAL RISK of cold (<{risk_threshold:.1f}°C). Extreme cold threshold: {extreme_cold_threshold:.1f}°C (P10)."
     
     return {
         'probability': round(probability, 1),
@@ -786,7 +829,6 @@ def calculate_season_from_month(month: int, latitude: float = None) -> str:
             return "Spring"
 
 def generate_plan_b_with_gemini(
-    activity: str,
     adverse_condition: str,
     risk_analysis: Dict[str, Any],
     location: str = "Montevideo, Uruguay",
@@ -797,7 +839,6 @@ def generate_plan_b_with_gemini(
     Generate intelligent Plan B suggestions using Gemini AI with context from risk_analysis.
     
     Args:
-        activity: Type of activity (beach, picnic, running, etc.)
         adverse_condition: Weather condition causing the risk (cold, hot, rainy, etc.)
         risk_analysis: Complete risk analysis result from calculate_weather_risk()
         location: Location name for context
@@ -805,7 +846,7 @@ def generate_plan_b_with_gemini(
         latitude: Latitude coordinate to calculate season correctly by hemisphere
         
     Returns:
-        Dict with Plan B suggestions
+        Dict with Plan B suggestions compatible with weather conditions
     """
     if not GEMINI_AVAILABLE:
         # Raise exception to trigger fallback in api.py
@@ -838,11 +879,11 @@ def generate_plan_b_with_gemini(
         risk_context += f"- Risk Message: {risk_message}\n"
         
         # Create enhanced prompt with better structure
-        prompt = f"""You are an expert weather planning assistant for {location}. Generate intelligent alternatives compatible with weather conditions when they are unfavorable.
+        prompt = f"""You are an expert weather planning assistant. Generate intelligent alternatives compatible with weather conditions when they are unfavorable.
 
 CONTEXT:
 - Weather Condition: {adverse_condition}
-- Location: {location}
+- Location Coordinates: {location}
 - Season: {season}
 - Target Month: {target_month}
 - Current Date: {datetime.now().strftime('%B %d, %Y')}
@@ -867,14 +908,14 @@ RESPONSE FORMAT: Return ONLY a valid JSON response with this exact structure:
             "type": "indoor/outdoor/mixed",
             "reason": "Why this is a good alternative for the weather conditions",
             "tips": "Practical tips for this activity",
-            "location": "Specific location or venue (if applicable)",
+            "location": "General description or city name",
             "duration": "Estimated time needed",
             "cost": "Free/Low/Medium/High"
         }}
     ]
 }}
 
-Focus on making the day enjoyable despite the weather conditions. Be specific, helpful, and consider the local context of Uruguay."""
+Focus on making the day enjoyable despite the weather conditions. Be specific, helpful, and consider the local context of the provided location coordinates."""
         
         # Generate response with timeout
         try:
@@ -944,7 +985,6 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
                 "ai_model": "Gemini 2.0 Flash",
                 "generated_at": datetime.now().isoformat(),
                 "context": {
-                    "activity": activity,
                     "adverse_condition": adverse_condition,
                     "risk_level": risk_level,
                     "location": location,
@@ -965,7 +1005,6 @@ Focus on making the day enjoyable despite the weather conditions. Be specific, h
 
 
 def generate_fallback_plan_b(
-    activity: str,
     adverse_condition: str,
     risk_level: str,
     location: str = "Montevideo, Uruguay",
@@ -983,7 +1022,6 @@ def generate_fallback_plan_b(
     Logs are automatically generated to track when fallback mode is used.
     
     Args:
-        activity: Type of activity
         adverse_condition: Weather condition causing the risk
         risk_level: Risk level (HIGH, MODERATE, LOW, MINIMAL)
         location: Location name for context
@@ -991,13 +1029,13 @@ def generate_fallback_plan_b(
         latitude: Latitude coordinate to calculate season
         
     Returns:
-        Dict with Plan B alternatives
+        Dict with Plan B alternatives compatible with weather conditions
     """
     # Calculate season from coordinates
     season = calculate_season_from_month(target_month, latitude)
     
     logger.warning("[FALLBACK MODE] Using predefined alternatives (Gemini AI unavailable)")
-    logger.info(f"Activity: {activity}, Condition: {adverse_condition}, Risk: {risk_level}, Season: {season}")
+    logger.info(f"Condition: {adverse_condition}, Risk: {risk_level}, Season: {season}")
     fallback_alternatives = {
         "beach": {
             "cold": [
@@ -1023,7 +1061,7 @@ def generate_fallback_plan_b(
                     "tips": "Bring towels and check temperature requirements"
                 }
             ],
-            "rainy": [
+            "wet": [
                 {
                     "title": "Shopping Mall",
                     "description": "Visit Punta Carretas or Montevideo Shopping",
@@ -1057,7 +1095,7 @@ def generate_fallback_plan_b(
                     "tips": "Book in advance and bring appetite"
                 }
             ],
-            "rainy": [
+            "wet": [
                 {
                     "title": "Restaurant Tour",
                     "description": "Visit multiple restaurants for different courses",
@@ -1084,7 +1122,7 @@ def generate_fallback_plan_b(
                     "tips": "Wear comfortable shoes and track steps"
                 }
             ],
-            "rainy": [
+            "wet": [
                 {
                     "title": "Indoor Sports Complex",
                     "description": "Use indoor courts or tracks",
@@ -1096,18 +1134,21 @@ def generate_fallback_plan_b(
         }
     }
     
-    # Get alternatives for the specific condition (activity-independent)
+    # Get alternatives for the specific condition (cold, hot, wet)
     alternatives = []
+    
+    # Map adverse condition to fallback key
+    condition_key = adverse_condition.lower()
     
     # For each activity type, get relevant alternatives for the adverse condition
     for activity_type, activity_data in fallback_alternatives.items():
-        if adverse_condition in activity_data:
-            alternatives.extend(activity_data[adverse_condition])
+        if condition_key in activity_data:
+            alternatives.extend(activity_data[condition_key])
     
     # If no alternatives found, provide general ones based on condition
     if not alternatives:
         general_alternatives = {
-            "very hot": [
+            "hot": [
                 {
                     "title": "Museo Torres García",
                     "description": "Explore Uruguayan art in an air-conditioned museum",
@@ -1129,7 +1170,7 @@ def generate_fallback_plan_b(
                     "cost": "Medium"
                 }
             ],
-            "very cold": [
+            "cold": [
                 {
                     "title": "Termas de Daymán",
                     "description": "Relax in natural hot springs",
@@ -1151,7 +1192,7 @@ def generate_fallback_plan_b(
                     "cost": "Medium"
                 }
             ],
-            "very rainy": [
+            "wet": [
                 {
                     "title": "Cinema Theater",
                     "description": "Watch latest movies in air-conditioned theaters",
