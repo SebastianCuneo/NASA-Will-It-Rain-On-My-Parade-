@@ -27,16 +27,16 @@ import 'leaflet/dist/leaflet.css';
 // Esto es necesario porque react-leaflet tiene problemas con los iconos por defecto
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png'),
-  iconUrl: require('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png'),
-  shadowUrl: require('https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'),
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
 // ICONO PERSONALIZADO: Configurar marcador visual para el mapa
 const customIcon = new L.Icon({
-  iconUrl: require('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png'),
-  iconRetinaUrl: require('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png'),
-  shadowUrl: require('https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'),
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
